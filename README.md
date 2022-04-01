@@ -9,18 +9,25 @@ Another simple way to integrate Magisk into Android-x86 project (BlissOS, PrimeO
 
 ## Build initrd on Linux environment
 
-1. Clone this repo by:
+1. Prepare environment:
+```
+apt update; apt upgrade
+pkg install git
+pkg install cpio
+```
+
+2. Clone this repo by:
 
 ```
 git clone http://github.com/huskydg/initrd-magisk
 ```
 
-2. Change current directory to `~/initrd-magisk`:
+3. Change current directory to `~/initrd-magisk`:
 ```
 cd ~/initrd-magisk
 ```
 
-3. Build with these command:
+4. Build with these command:
 ```
 chmod -R 777 *; find * | cpio -o -H newc | gzip > ../initrd-magisk.img
 ```
