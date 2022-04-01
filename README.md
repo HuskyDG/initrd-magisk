@@ -12,8 +12,8 @@ Android x86 directory will be like this:
 - ...
 - data.img or data folder
 - findme
-- initrd.img
-- initrd_real.img
+- initrd.img (initrd-magisk)
+- initrd_real.img (original initrd.img)
 - install.img
 - kernel
 - magisk.apk
