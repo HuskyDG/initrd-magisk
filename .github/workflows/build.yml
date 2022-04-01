@@ -1,0 +1,46 @@
+name: build
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'initrd/**'
+      - '.github/workflows/build.yml'
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: Build initrd-magisk
+      run: |
+        cd initrd
+        chmod -R 777 *; ln -fs /bin/ld-linux.so.2 lib/ld-linux.so.2; find * | cpio -o -H newc | gzip > ../initrd-magisk.img
+        cd ..
+    - uses: actions/upload-artifact@v1
+      with:
+        name: initrd-magisk
+        path: initrd-magisk.img
+    - name: Patch boot image
+      run: |
+        cd patch
+        sh download.sh
+        cp ../initrd/boot.img.gz ./boot.img.gz
+        cp ../initrd/magisk/magiskboot.gz ./magiskboot.gz
+        gzip -d ./boot.img.gz
+        gzip -d ./magiskboot.gz
+        chmod 777 ./magiskboot
+        sh ./boot_patch.sh boot.img canary-huskydg
+        sh ./boot_patch.sh boot.img debug-huskydg
+        cd ..
+    - name: Upload a Build Artifact
+      uses: actions/upload-artifact@v3.1.0
+      with:
+        name: Boot image for initrd-magisk
+        path: |
+            boot-magisk_canary-huskydg.img
+            boot-magisk_debug-huskydg.img    

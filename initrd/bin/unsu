@@ -1,0 +1,164 @@
+#!/bin/busybox sh
+
+exec 2>/dev/null
+
+VALUE="$1"
+
+. /bin/utils.sh
+
+get_src
+
+ui_print() { 
+echo "$1"
+}
+
+abort(){
+ui_print "$1"
+exit 1
+umount -l /image_loop
+umount -l /alt_image_loop
+}
+
+
+
+[ "$VALUE" == "img" ] && SYSTEMIMG="/mnt/$SOURCE_OS/system.img"
+if [ ! -f "$SYSTEMIMG" ] && [ ! -z "$SYSTEMIMG" ]; then
+    abort "! Cannot find system image"
+elif [ ! -z "$SYSTEMIMG" ]; then
+   mkdir /image_loop
+   mount -o ro,loop "$SYSTEMIMG" /image_loop
+   mount -o rw,remount /image_loop || abort "! Failed to mount loop system.img"
+fi
+
+
+
+ui_print "unSU Script";
+ui_print "by osm0sis @ xda-developers";
+show_progress 1.34 2;
+ui_print "Mounting...";
+
+checkrootfs="$(mountpoint -d /android)"
+
+if [ -f "$SYSTEMIMG" ] && [ ! -z  "$SYSTEMIMG" ]; then
+  root=/image_loop
+  if [ "${checkrootfs%:*}" == "0" ]; then
+    mkdir /alt_image_loop
+    mount --move /image_loop /alt_image_loop
+    mount -t tmpfs tmpfs /image_loop
+    mkdir /image_loop/system
+    mount --bind /alt_image_loop /image_loop/system
+    system=/image_loop/system
+  else
+    system=/image_loop
+  fi
+else
+  root=/android
+  if [ "${checkrootfs%:*}" == "0" ]; then
+    system=/android/system
+  else
+    system=/android
+  fi
+fi
+
+if ! mount -o rw,remount $system; then
+  abort "! System is not writeable"
+fi
+
+if ! cat /proc/mounts | grep " $root " | tail -1 | awk '{ print $4 }' | grep -q "^rw,"; then
+  abort "! System is not writeable"
+fi
+
+ui_print "Find and remove SU..."
+
+if [ -e /data/su ]; then
+  ui_print "Removing phh's SuperUser...";
+  rm -rf /data/app/me.phh.superuser* /data/data/me.phh.superuser* /data/su;
+  bootmsg=1;
+fi;
+
+if [ -e /cache/su.img -o -e /data/su.img ]; then
+  ui_print "Removing SuperSU Systemless (su.img)...";
+  umount /su;
+  rm -rf /cache/su.img /data/su.img /data/adb/suhide;
+  bootmsg=1;
+  supersu=1;
+fi;
+
+bindsbin=$(dirname `find /data -name supersu_is_here | head -n1`);
+if [ -e "$bindsbin" ]; then
+  ui_print "Removing SuperSU Systemless (BINDSBIN at $bindsbin)...";
+  rm -rf $bindsbin /data/app/eu.chainfire.suhide* /data/user*/*/eu.chainfire.suhide*;
+  bootmsg=1;
+  supersu=1;
+fi;
+
+if [ -e $root/system/bin/.ext/.su ]; then
+  ui_print "Removing SuperSU...";
+  mount -o rw,remount $system;
+
+  rm -rf $root/system/.pin $root/system/.supersu \
+         $root/system/app/Superuser.apk $root/system/app/SuperSU \
+         $root/system/bin/.ext $root/system/bin/app_process_init \
+         $root/system/etc/.installed_su_daemon $root/system/etc/install-recovery.sh $root/system/etc/init.d/99SuperSUDaemon \
+         $root/system/lib/libsupol.so $root/system/lib64/libsupol.so $root/system/su.d \
+         $root/system/xbin/daemonsu $root/system/xbin/su $root/system/xbin/sugote $root/system/xbin/sugote-mksh $root/system/xbin/supolicy;
+
+  mv -f $root/system/bin/app_process32_original $root/system/bin/app_process32;
+  mv -f $root/system/bin/app_process64_original $root/system/bin/app_process64;
+  mv -f $root/system/bin/install-recovery_original.sh $root/system/bin/install-recovery.sh;
+
+  cd $root/system/bin;
+  if [ -e app_process64 ]; then
+    ln -sf app_process64 app_process;
+  elif [ -e app_process32 ]; then
+    ln -sf app_process32 app_process;
+  fi;
+  supersu=1;
+fi;
+
+if [ "$supersu" ]; then
+  rm -rf /cache/.supersu /cache/SuperSU.apk \
+         /data/.supersu /data/SuperSU.apk \
+         /data/app/eu.chainfire.supersu* /data/user*/*/eu.chainfire.supersu*;
+fi;
+
+if [ -e $root/system/bin/su -a "$(strings $root/system/xbin/su | grep koush)" ]; then
+  ui_print "Removing Koush's SuperUser...";
+  mount -o rw,remount $system;
+
+  rm -rf $root/system/app/Superuser.apk $root/system/bin/su \
+         $root/system/etc/.has_su_daemon $root/system/etc/.installed_su_daemon $root/system/xbin/su \
+         /cache/su /cache/Superuser.apk /cache/install-recovery-sh \
+         /data/app/com.koushikdutta.superuser* /data/user*/*/com.koushikdutta.superuser*;
+fi;
+
+if [ -e $root/system/addon.d/51-addonsu.sh ]; then
+  ui_print "Removing LineageOS addonsu...";
+  mount -o rw,remount $system;
+  rm -rf $root/system/addon.d/51-addonsu.sh $root/system/bin/su \
+         $root/system/etc/init/superuser.rc $root/system/xbin/su;
+fi;
+
+if [ -e $root/system/bin/su -o -e $root/system/xbin/su ]; then
+  ui_print "Removing ROM su binary...";
+  mount -o rw,remount $system;
+  rm -rf $root/system/bin/su $root/system/xbin/su;
+fi;
+
+if [ -e $root/init ] && [ -e $root/init.real ]; then
+  ui_print "Removing rusty-magisk binary...";
+  mount -o rw,remount $system;
+  umount /init
+  cp -af $root/init.real $root/init
+  rm -rf $root/init.real;
+fi;
+
+if [ -e /system/priv-app/MagiskSu ]; then
+  ui_print "Removing built-in magisk app...";
+  mount -o rw,remount $system;
+  rm -rf /system/priv-app/MagiskSu
+fi;
+
+umount -l /image_loop
+umount -l /alt_image_loop
+ui_print "Done!";
