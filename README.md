@@ -72,6 +72,6 @@ chmod -R 777 *; find * | cpio -o -H newc | gzip > ../initrd-magisk.img
 
 ## Important
 
-- If you have `rusty-magisk`, `initrd-magisk` will try to invalidate it. **It's recommended to remove it**.
+- If you have `rusty-magisk` installed (BlissOS 14, PrimeOS 2.0 come with `rusty-magisk` installed), `initrd-magisk` will try to invalidate it. **It's RECOMMENDED to remove it**.
 - If you update Android-x86 OTA, it might wipe out `initrd.img` so you will need to do again.
 
