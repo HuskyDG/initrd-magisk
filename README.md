@@ -14,11 +14,13 @@ Another simple way to integrate Magisk into Android-x86 project (BlissOS, PrimeO
 - Put `99_magisk` script into `/scripts` which is executed to patch `/android` and put magisk binaries into next stage.
 - Launch `init` script from original `initrd.img` and continue to boot.
 - Execute `99_magisk` script and patch Android's root directory
-  - On rootfs, directly add magisk services into `init.rc`
+  - On rootfs, directly add magisk binaries into `/android/magisk` and magisk services into `init.rc`
   - On system-as-root, mount tmpfs on `/android/dev`, mount overlayfs on `/system/etc/init` and add magisk binaries and `magisk.rc`.
-  - Patch sepolicy file an dump into `/android/dev/.overlay/sepolicy` and mount bind into `/sepolicy` or vendor precompiled sepolicy.
+  - Patch sepolicy file, dump it into `/android/dev/.overlay/sepolicy` and mount bind into `/sepolicy` or vendor precompiled sepolicy.
   - Unmount `/android/dev`
 - `init` switch root to `/android` and execute `/init` to boot into Android.
+- Android boot with Magisk
+
 
 ## Build initrd on Linux environment
 
