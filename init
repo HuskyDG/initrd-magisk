@@ -216,6 +216,8 @@ find_magisk_apk() {
   [ ! -f \\\$DAPK ] || /system/bin/pm install /data/adb/magisk.apk
 }
 
+find_magisk_apk &
+
 
 \" >\$MAGISKTMP/emu/magisksu_survival.sh
 
@@ -449,15 +451,15 @@ mkdir \$MAGISKTMP/.magisk/block
 
 touch \$MAGISKTMP/.magisk/config
 
-cd \$MAGISKTMP
+#cd \$MAGISKTMP
 # SELinux stuffs
-if [ -f /vendor/etc/selinux/precompiled_sepolicy ]; then
-  ./magiskpolicy --load /vendor/etc/selinux/precompiled_sepolicy --live --magisk 2>&1
-elif [ -f /sepolicy ]; then
-  ./magiskpolicy --load /sepolicy --live --magisk 2>&1
-else
-  ./magiskpolicy --live --magisk 2>&1
-fi
+#if [ -f /vendor/etc/selinux/precompiled_sepolicy ]; then
+#  ./magiskpolicy --load /vendor/etc/selinux/precompiled_sepolicy --live --magisk 2>&1
+#elif [ -f /sepolicy ]; then
+#  ./magiskpolicy --load /sepolicy --live --magisk 2>&1
+#else
+#  ./magiskpolicy --live --magisk 2>&1
+#fi
 
 #remount system read-only to fix Magisk fail to mount mirror
 
@@ -471,7 +473,6 @@ mount -o ro,remount /system_ext
 restorecon -R /data/adb/magisk
 
 $ADDITIONAL_SCRIPT
-$LOAD_MODULES_POLICY
 
 [ ! -f \"\$MAGISKTMP/magisk\" ] && exit_magisk
 
