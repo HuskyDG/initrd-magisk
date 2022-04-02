@@ -1,4 +1,7 @@
 # initrd-magisk
+
+> This is still WIP
+
 Another simple way to integrate Magisk into Android-x86 project (BlissOS, PrimeOS, ...)
 
 
