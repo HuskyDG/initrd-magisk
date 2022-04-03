@@ -45,7 +45,7 @@ Android x86 directory will be like this:
 - Android boot with Magisk
 
 
-## Build initrd on Linux environment
+## Build your own initrd on Linux environment
 
 1. Prepare environment:
 ```
@@ -64,6 +64,26 @@ git clone http://github.com/huskydg/initrd-magisk
 ```
 cd ~/initrd-magisk
 ```
+
+4. Default is x86_64 (64bit)
+```
+cat <<EOF >bin/info.sh
+IS64BIT=true
+ABI=x86_64
+ABI32=x86
+EOF
+```
+
+  If you want to build initrd-magisk for Android x86 (32bit):
+
+```
+cat <<EOF >bin/info.sh
+IS64BIT=false
+ABI=x86
+ABI32=x86
+EOF
+```
+
 
 4. Build with these command:
 ```
