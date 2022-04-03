@@ -1,7 +1,4 @@
 # initrd-magisk
-
-> This is still WIP
-
 Another simple way to integrate Magisk into Android-x86 project (BlissOS, PrimeOS, ...)
 
 
@@ -78,7 +75,3 @@ chmod -R 777 *; find * | cpio -o -H newc | gzip > ../initrd-magisk.img
 - If you have `rusty-magisk` installed (BlissOS 14, PrimeOS 2.0 come with `rusty-magisk` installed), `initrd-magisk` will try to invalidate it. **It's RECOMMENDED to remove it**.
 - If you update Android-x86 OTA, it might wipe out `initrd.img` so you will need to do again.
 
-
-## Known issues
-
-- BlissOS Android 9 stucks at Found Android screen

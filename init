@@ -192,7 +192,8 @@ rm -rf /data/adb/service.d/fix_modules_not_show.sh
 
 echo \"
 export PATH=\\\"\$MAGISKTMP:\\\$PATH\\\"
-if [ -f \\\"/system/bin/magisk\\\" ]; then
+
+if mount | grep -q \\\" /system/bin \\\" && [ -f \\\"/system/bin/magisk\\\" ]; then
     umount -l /system/bin/su
     rm -rf /system/bin/su
     ln -fs ./magisk /system/bin/su
@@ -200,24 +201,17 @@ if [ -f \\\"/system/bin/magisk\\\" ]; then
     umount -l /system/bin/magisk
     mount --bind \\\"\$MAGISKTMP/magisk\\\" /system/bin/magisk
 fi
-find_magisk_apk() {
-  local DBAPK
-  [ -z \\\$APK ] && APK=\\\$NVBASE/magisk.apk
-  [ -f \\\$APK ] || APK=\\\$MAGISKBIN/magisk.apk
-  [ -f \\\$APK ] || APK=/data/app/com.topjohnwu.magisk*/*.apk
-  [ -f \\\$APK ] || APK=/data/app/*/com.topjohnwu.magisk*/*.apk
-  if [ ! -f \\\$APK ]; then
-    DBAPK=\\\$(magisk --sqlite \\\"SELECT value FROM strings WHERE key='requester'\\\" 2>/dev/null | cut -d= -f2)
-    [ -z \\\$DBAPK ] && DBAPK=\\\$(strings \\\$NVBASE/magisk.db | grep -oE 'requester..*' | cut -c10-)
-    [ -z \\\$DBAPK ] || APK=/data/user_de/*/\\\$DBAPK/dyn/*.apk
-    [ -f \\\$APK ] || [ -z \\\$DBAPK ] || APK=/data/app/\\\$DBAPK*/*.apk
-    [ -f \\\$APK ] || [ -z \\\$DBAPK ] || APK=/data/app/*/\\\$DBAPK*/*.apk
-  fi
-  [ ! -f \\\$DAPK ] || /system/bin/pm install /data/adb/magisk.apk
+
+install_app(){
+MAGISK_STUB=\\\$(strings /data/adb/magisk.db | grep -oE 'requester..*' | cut -c10-)
+if [ ! -z \\\"\\\$MAGISK_STUB\\\" ]; then
+/system/bin/pm path \\\"\\\$MAGISK_STUB\\\" || /system/bin/pm install \\\"\$MAGISKTMP/.magisk/magisk.apk\\\"
+else
+/system/bin/pm install \\\"\$MAGISKTMP/.magisk/magisk.apk\\\"
+fi
 }
 
-find_magisk_apk &
-
+install_app &
 
 \" >\$MAGISKTMP/emu/magisksu_survival.sh
 
@@ -430,7 +424,7 @@ for file in magisk32 magisk64 magiskinit magiskpolicy; do
   chmod 755 \$MAGISKBIN/\$file
 done
 cp -af ./magiskboot \$MAGISKBIN/magiskboot
-cp -af ./magisk.apk /data/adb
+cp -af ./magisk.apk \$MAGISKTMP/.magisk
 cp -af ./busybox \$MAGISKBIN/busybox
 cp -af ./busybox \$MAGISKTMP
 chmod 755 \$MAGISKTMP/busybox
@@ -483,6 +477,12 @@ umount -l /init.rc
 umount -l /system/etc/init/hw/init.rc
 umount -l /sepolicy
 umount -l /system/vendor/etc/selinux/precompiled_sepolicy
+
+if mount -t rootfs | grep -q \" / \" || mount -t tmpfs | grep -q \" / \"; then
+rm -rf /magisk
+fi
+
+
 "
 
 cd "$JOBPWD"
@@ -508,12 +508,12 @@ check_root()
 		mkdir /mnt/iso
 		mount -o loop /iso/$iso /mnt/iso
 	fi
-  RAMDISK=initrd_real.img
+  INITRD_REAL=initrd_real.img
   APKFILE=/mnt/$SRC/magisk.apk
-	if [ -e /mnt/$SRC/$RAMDISK ]; then
-		zcat /mnt/$SRC/$RAMDISK | cpio -id > /dev/null
-	elif [ -b /dev/$RAMDISK ]; then
-		zcat /dev/$RAMDISK | cpio -id > /dev/null
+	if [ -e /mnt/$SRC/$INITRD_REAL ]; then
+		zcat /mnt/$SRC/$INITRD_REAL | cpio -id > /dev/null
+	elif [ -b /dev/$INITRD_REAL ]; then
+		zcat /dev/$INITRD_REAL | cpio -id > /dev/null
 	else
 		return 1
 	fi
