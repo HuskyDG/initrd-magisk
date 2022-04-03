@@ -85,7 +85,7 @@ EOF
 ```
 
 
-4. Build with these command:
+5. Build with these command:
 ```
 chmod -R 777 *; find * | cpio -o -H newc | gzip > ../initrd-magisk.img
 ```
