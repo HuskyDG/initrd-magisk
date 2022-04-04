@@ -29,7 +29,7 @@ cp /magisk/magisk.rc $inittmp/.overlay/upper/magisk.rc
 fi
 mkdir -p /data
 mount_data_part /data
-[ ! -d "/magisk/magiskpolicy" ] && ln -sf ./magiskinit /magisk/magiskpolicy
+[ ! -f "/magisk/magiskpolicy" ] && ln -sf ./magiskinit /magisk/magiskpolicy
 
 module_policy="$inittmp/.overlay/sepolicy.rules"
 

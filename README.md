@@ -5,7 +5,7 @@ Another simple way to integrate Magisk into Android-x86 project (BlissOS, PrimeO
 ## How to use?
 
 1. In Android-x86 directory (which contain initrd.img, system.img, data, or data.img, ...), rename `initrd.img` to `initrd_real.img` and put `initrd-magisk` as `initrd.img`.
-2. Download **magisk apk** and put it as `magisk.apk` in Android-88 directory.
+2. Download **magisk apk** and put it as `magisk.apk` in Android-x86 directory.
 
 Android x86 directory will be like this:
 
