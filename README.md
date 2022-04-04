@@ -4,6 +4,8 @@ Another simple way to integrate Magisk into Android-x86 project (BlissOS, PrimeO
 
 ## How to use?
 
+Download initrd-magisk from [Release page](https://github.com/HuskyDG/initrd-magisk/releases)
+
 1. In Android-x86 directory (which contain initrd.img, system.img, data, or data.img, ...), rename `initrd.img` to `initrd_real.img` and put `initrd-magisk` as `initrd.img`.
 2. Download **magisk apk** and put it as `magisk.apk` in Android-x86 directory.
 
@@ -23,6 +25,9 @@ Android x86 directory will be like this:
 
 
 ## How does it works?
+
+<details>
+<summary>Show all</summary>
 
 ### initrd-magisk boot stage
 
@@ -44,8 +49,13 @@ Android x86 directory will be like this:
 
 - Android boot with Magisk
 
+</details>
+
 
 ## Build your own initrd on Linux environment
+
+<details>
+<summary>Show all</summary>
 
 1. Prepare environment:
 ```
@@ -89,6 +99,8 @@ EOF
 ```
 chmod -R 777 *; find * | cpio -o -H newc | gzip > ../initrd-magisk.img
 ```
+</details>
+
 
 ## Important
 
