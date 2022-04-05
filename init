@@ -160,22 +160,7 @@ mnt_tmpfs \"$MAGISKTMP\"
 chmod 755 \"$MAGISKTMP\""
      umount_sbin="umount /sbin"
 
-# apply multiple sepolicy at same time
 
-LOAD_MODULES_POLICY="rm -rf \"\$MAGISKTMP/.magisk/sepolicy.rules\"
-for module in \$(ls /data/adb/modules); do
-              if ! [ -f \"/data/adb/modules/\$module/disable\" ] && [ -f \"/data/adb/modules/\$module/sepolicy.rule\" ]; then
-                  echo \"## * module sepolicy: \$module\" >>\"\$MAGISKTMP/.magisk/sepolicy.rules\"
-                  cat  \"/data/adb/modules/\$module/sepolicy.rule\" >>\"\$MAGISKTMP/.magisk/sepolicy.rules\"
-                  echo \"\" >>\"\$MAGISKTMP/.magisk/sepolicy.rules\"
-                  
-              fi
-          done
-\$MAGISKTMP/magiskpolicy --live --apply \"\$MAGISKTMP/.magisk/sepolicy.rules\""
-
-unset LOG_MAGISK
-unset FORCE_MAGISKHIDE
-unset ADD_FORCE_MAGISKHIDE
 RM_RUSTY_MAGISK="#remove rusty-magisk gearlock module to make sure it is not conflicted with our magisk implement
               rm /data/ghome/gearboot/overlay/rusty-magisk/init/init.superuser.rc
               rm /data/.rusty-magisk/magisk.apk
@@ -273,9 +258,6 @@ EXPORT_PATH="export PATH /sbin:/system/bin:/system/xbin:/vendor/bin:/gearlock/bi
 
 
 magiskloader="
-
-         on early-init
-             $EXPORT_PATH
               
 
           on post-fs-data
@@ -283,7 +265,9 @@ $RM_RUSTY_MAGISK
               start logd
               start adbd
               rm /dev/.magisk_unblock
-              exec u:r:su:s0 root root -- $MAGISKBASE/busybox sh -o standalone $MAGISKBASE/overlay.sh
+              copy $MAGISKBASE/overlay.sh /dev/magisk_overlay.sh
+              exec u:r:su:s0 root root -- $MAGISKBASE/busybox sh -o standalone /dev/magisk_overlay.sh
+              rm /dev/magisk_overlay.sh
               exec u:r:magisk:s0 root root -- $MAGISKTMP/magisk --daemon
               start $magisk_postfsdata
               # wait all magisk post-fs-data jobs are completed or 40s  has passed
@@ -302,7 +286,6 @@ $RM_RUSTY_MAGISK
               oneshot
 
           on property:sys.boot_completed=1
-              $umount_sbin
               start $magisk_boot_complete
 # remove magisk service traces from some detection
 # although detect modified init.rc is not always correct
@@ -437,7 +420,7 @@ ln -s ./\$magisk_name \$MAGISKTMP/magisk 2>/dev/null
 ln -s ./magisk \$MAGISKTMP/su 2>/dev/null
 ln -s ./magisk \$MAGISKTMP/resetprop 2>/dev/null
 ln -s ./magisk \$MAGISKTMP/magiskhide 2>/dev/null
-[ ! -d \"\$MAGISKTMP/magiskpolicy\" ] && ln -s ./magiskinit \$MAGISKTMP/magiskpolicy 2>/dev/null
+[ ! -f \"\$MAGISKTMP/magiskpolicy\" ] && ln -s ./magiskinit \$MAGISKTMP/magiskpolicy 2>/dev/null
 ln -s ./magiskpolicy \$MAGISKTMP/supolicy 2>/dev/null
 
 mkdir -p \$MAGISKTMP/.magisk/mirror
@@ -445,19 +428,14 @@ mkdir \$MAGISKTMP/.magisk/block
 
 touch \$MAGISKTMP/.magisk/config
 
-#cd \$MAGISKTMP
-# SELinux stuffs
-#if [ -f /vendor/etc/selinux/precompiled_sepolicy ]; then
-#  ./magiskpolicy --load /vendor/etc/selinux/precompiled_sepolicy --live --magisk 2>&1
-#elif [ -f /sepolicy ]; then
-#  ./magiskpolicy --load /sepolicy --live --magisk 2>&1
-#else
-#  ./magiskpolicy --live --magisk 2>&1
-#fi
 
 #remount system read-only to fix Magisk fail to mount mirror
 
-$remove_backup
+if mount -t rootfs | grep -q \" / \" || mount -t tmpfs | grep -q \" / \"; then
+rm -rf /magisk
+fi
+
+
 mount -o ro,remount /
 mount -o ro,remount /system
 mount -o ro,remount /vendor
@@ -477,15 +455,7 @@ umount -l /init.rc
 umount -l /system/etc/init/hw/init.rc
 umount -l /sepolicy
 umount -l /system/vendor/etc/selinux/precompiled_sepolicy
-
-if mount -t rootfs | grep -q \" / \" || mount -t tmpfs | grep -q \" / \"; then
-rm -rf /magisk
-fi
-
-
 "
-
-cd "$JOBPWD"
 }
 
 
@@ -512,6 +482,8 @@ check_root()
   APKFILE=/mnt/$SRC/magisk.apk
 	if [ -e /mnt/$SRC/$INITRD_REAL ]; then
 		zcat /mnt/$SRC/$INITRD_REAL | cpio -id > /dev/null
+  elif [ -e /mnt/$SRC/initrd.img ]; then
+    zcat /mnt/$SRC/initrd.img | cpio -id > /dev/null
 	elif [ -b /dev/$INITRD_REAL ]; then
 		zcat /dev/$INITRD_REAL | cpio -id > /dev/null
 	else
@@ -544,11 +516,29 @@ debug_shell()
 	fi
 }
 
+abort(){
+echo "$1"
+sleep 5
+exit 1
+}
+
 
 
 init_magisk(){
-echo "initrd-magisk Android x86 v1.0"
-echo -n Initialize Magisk...
+# exit when detect itself
+
+test -e /dev/.initrd-magisk && abort "WARING: Invalid initialization! Exit in 5 second..."
+
+# point out that initrd-magisk is already used
+
+rm -rf /dev/.initrd-magisk
+echo -n >/dev/.initrd-magisk
+
+clear
+
+
+echo "initrd-magisk Android x86 v1.1"
+echo -n Initialize Magisk environment...
 
 [ -z "$SRC" -a -n "$BOOT_IMAGE" ] && SRC=`dirname $BOOT_IMAGE`
 
@@ -579,6 +569,21 @@ done
 
 echo ""
 
+( . /bin/utils.sh
+
+# disable magisk with flag FIXFS
+
+if [ "$FIXFS" == "1" ]; then
+    echo "Disable all Magisk modules"
+    mkdir /data
+    mount_data_part /data
+    for magisk_module in $(ls /data/adb/modules); do
+        echo -n >/data/adb/modules/$magisk_module/disable
+    done
+    umount -l /data
+fi
+)
+
 MAGISKCORE=/magisk
 TMPDIR=/tmp
 MAGISKBASE=MAGISK_FILES_BASE
@@ -601,9 +606,12 @@ warn_no_magisk
 rm -rf /scripts/99_magisk
 fi
 
+
+# continue boot
+
 cp -af /first_stage/* /
 chmod 777 /init
-. /init
+exec /init
 }
 
 init_magisk

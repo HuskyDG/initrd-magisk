@@ -1,25 +1,33 @@
 # initrd-magisk
-Another simple way to integrate Magisk into Android-x86 project (BlissOS, PrimeOS, ...)
+Another easy and convenient way to integrate Magisk into Android-x86 project (BlissOS, PrimeOS, ...)
 
 
 ## How to use?
 
 Download initrd-magisk from [Release page](https://github.com/HuskyDG/initrd-magisk/releases)
 
-1. In Android-x86 directory (which contain initrd.img, system.img, data, or data.img, ...), rename `initrd.img` to `initrd_real.img` and put `initrd-magisk` as `initrd.img`.
+### First way
+
+1. In Android-x86 directory, rename `initrd.img` to `initrd_real.img` and put `initrd-magisk` as `initrd.img`.
 2. Download **magisk apk** and put it as `magisk.apk` in Android-x86 directory.
+
+## Second way
+
+1. Put `initrd-magisk.img` into Android-x86 directory. Search for line `initrd /$SOURCE_NAME/initrd.img` in GRUB custom code and change it to `initrd /$SOURCE_NAME/initrd-magisk.img`
+2. Download **magisk apk** and put it as `magisk.apk` in Android-x86 directory.
+
 
 Android x86 directory will be like this:
 
 - ...
-- data.img or data folder
+- data.img or data folder ← userdata will be store here
 - findme
-- initrd.img (initrd-magisk)
-- initrd_real.img (original initrd.img)
+- initrd.img (initrd-magisk.img) ←initial ramdisk
+- initrd_real.img (initrd.img) ← Original initrd image will be loaded by initrd-magisk
 - install.img
 - kernel
-- magisk.apk
-- ramdisk.img (if Android 9 and bellow)
+- magisk.apk ← This Magisk version will be loaded by initrd-magisk, if this file does not exist, it will boot Android without Magisk
+- ramdisk.img ←exist if Android 9 and bellow (rootfs)
 - system.img
 - ...
 
@@ -39,11 +47,12 @@ Android x86 directory will be like this:
 ### original initrd boot stage
 
 - Execute `99_magisk` script to patch Android's root directory
+  - Mount tmpfs on `/android/dev`.
   - On rootfs, directly add magisk binaries into `/android/magisk` and magisk services into `init.rc`
-  - On system-as-root, mount tmpfs on `/android/dev`, mount overlayfs on `/system/etc/init` and add magisk binaries and `magisk.rc`.
+  - On system-as-root, mount overlayfs on `/system/etc/init` and add magisk binaries and `magisk.rc`.
   - Patch sepolicy file, dump it into `/android/dev/.overlay/sepolicy` and mount bind into `/sepolicy` or vendor precompiled sepolicy.
   - Unmount `/android/dev`
-- `init` switch root to `/android` and execute `/init` to boot into Android.
+- `init` switch root to `/android` and execute `/init` to boot Android.
 
 ### Android boot stage
 
@@ -100,6 +109,10 @@ EOF
 chmod -R 777 *; find * | cpio -o -H newc | gzip > ../initrd-magisk.img
 ```
 </details>
+
+## Other features
+
+- Disable all magisk module with flag `FIXFS=1`
 
 
 ## Important
