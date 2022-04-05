@@ -1,3 +1,5 @@
+
+
 inittmp=/android/dev
 mount -t tmpfs tmpfs $inittmp
 mkdir -p $inittmp/.overlay/upper
@@ -27,6 +29,10 @@ sed -i "s|MAGISK_FILES_BASE|/system/etc/init/magisk|g" /magisk/magisk.rc
 cp -a /magisk $inittmp/.overlay/upper
 cp /magisk/magisk.rc $inittmp/.overlay/upper/magisk.rc
 fi
+
+# pre-init sepolicy patch
+
+
 mkdir -p /data
 mount_data_part /data
 [ ! -f "/magisk/magiskpolicy" ] && ln -sf ./magiskinit /magisk/magiskpolicy
@@ -36,6 +42,10 @@ module_policy="$inittmp/.overlay/sepolicy.rules"
 rm -rf "$module_policy"
 
 echo "allow su * * *">"$module_policy"
+
+# /data on Android-x86 is not always encrypted
+
+
 for module in $(ls /data/adb/modules); do
               if ! [ -f "/data/adb/modules/$module/disable" ] && [ -f "/data/adb/modules/$module/sepolicy.rule" ]; then
                   cat  "/data/adb/modules/$module/sepolicy.rule" >>"$module_policy"
@@ -53,9 +63,12 @@ mount --bind $inittmp/.overlay/policy "$policy"
 
 umount -l /data
 
+# bind mount modified sepolicy
+
 if [ -f /android/system/vendor/etc/selinux/precompiled_sepolicy ]; then
   bind_policy /android/system/vendor/etc/selinux/precompiled_sepolicy
 elif [ -f /android/sepolicy ]; then
   bind_policy /android/sepolicy
 fi
 umount -l $inittmp
+mount -o ro,remount /android
