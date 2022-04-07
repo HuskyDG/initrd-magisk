@@ -23,7 +23,10 @@ mkdir /system_root
 mount $sysblock /system_root
 # prepare for second stage
 chmod 750 $inittmp
+umount -l /android/system/etc/init
 mount -t overlay tmpfs -o lowerdir=/android/system/etc/init,upperdir=$inittmp/.overlay/upper,workdir=$inittmp/.overlay/work /android/system/etc/init
+
+
 sed -i "s|MAGISK_FILES_BASE|/system/etc/init/magisk|g" /magisk/overlay.sh
 sed -i "s|MAGISK_FILES_BASE|/system/etc/init/magisk|g" /magisk/magisk.rc
 cp -a /magisk $inittmp/.overlay/upper
@@ -56,6 +59,7 @@ for module in $(ls /data/adb/modules); do
 
 bind_policy(){
 policy="$1"
+umount -l "$1"
 /magisk/magiskpolicy --load "$policy" --save "$inittmp/.overlay/policy" --magisk "allow * magisk_file lnk_file *"
 /magisk/magiskpolicy --load "$inittmp/.overlay/policy" --save "$inittmp/.overlay/policy" --apply "$module_policy"
 mount --bind $inittmp/.overlay/policy "$policy"

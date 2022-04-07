@@ -1,3 +1,3 @@
-IS64BIT=true
-ABI=x86_64
+IS64BIT=false
+ABI=x86
 ABI32=x86
