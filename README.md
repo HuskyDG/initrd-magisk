@@ -11,7 +11,7 @@ Download initrd-magisk from [Release page](https://github.com/HuskyDG/initrd-mag
 1. In Android-x86 directory, rename `initrd.img` to `initrd_real.img` and put `initrd-magisk` as `initrd.img`.
 2. Download **magisk apk** and put it as `magisk.apk` in Android-x86 directory.
 
-## Second way
+### Second way
 
 1. Put `initrd-magisk.img` into Android-x86 directory. Search for line `initrd /$SOURCE_NAME/initrd.img` in GRUB custom code and change it to `initrd /$SOURCE_NAME/initrd-magisk.img`
 2. Download **magisk apk** and put it as `magisk.apk` in Android-x86 directory.
