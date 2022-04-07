@@ -5,7 +5,7 @@ mount -t tmpfs tmpfs $inittmp
 mkdir -p $inittmp/.overlay/upper
 mkdir -p $inittmp/.overlay/work
 
-# . /bin/utils.sh
+. /bin/utils.sh
 
 if mount -t tmpfs | grep -q " /android " || mount -t rootfs | grep -q " /android "; then
 # rootfs, patch ramdisk
