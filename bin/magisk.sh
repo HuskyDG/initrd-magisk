@@ -36,7 +36,7 @@ cat /magisk/magisk.rc >>/android/init.rc
 else
 sysblock="$(mount | grep " /android " | tail -1 | awk '{ print $1 }')"
 mkdir /android/dev/system_root
-mount $sysblock /android/dev/system_root || mount -o ro $sysblock /dev/system_root
+mount $sysblock /android/dev/system_root || mount -o ro $sysblock /android/dev/system_root
 # prepare for second stage
 chmod 750 $inittmp
 umount -l /android/system/etc/init
