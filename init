@@ -90,66 +90,37 @@ extract_magisk_apk(){
 
 
 
-[ "$IS64BIT" == "true" ] && mkdir -p "$TMPDIR/magisk32"
+mkdir -p "$TMPDIR/magisk32"
 mkdir -p "$TMPDIR/magisk"
  
 
-unzip -o "$APKFILE" "lib/$ABI/*" -d "$TMPDIR/magisk" &>/dev/null
+unzip -o "$APKFILE" "lib/x86_64/*" -d "$TMPDIR/magisk" &>/dev/null
 chmod -R 777 "$TMPDIR/magisk"
-
-if [ "$IS64BIT" == "true" ]; then
-unzip -o "$APKFILE" "lib/$ABI32/*" -d "$TMPDIR/magisk32" &>/dev/null
+unzip -o "$APKFILE" "lib/x86/*" -d "$TMPDIR/magisk32" &>/dev/null
 chmod -R 777 "$TMPDIR/magisk32"
-cp -af "$TMPDIR/magisk32/lib/$ABI32/"* "$MAGISKCORE"
-fi
-
-cp -af "$TMPDIR/magisk/lib/$ABI/"* "$MAGISKCORE"
-
-for file in magisk32 magisk64 magiskinit magiskpolicy busybox magiskboot; do
-rm -rf "$MAGISKCORE/$file"
-cp "$MAGISKCORE/lib${file}.so" "$MAGISKCORE/$file"
-done
 
 
 unzip -o "$APKFILE" 'assets/*' -x 'assets/chromeos/*' -d "$MAGISKCORE" &>/dev/null
 
 }
 
-random(){
-VALUE=$1; TYPE=$2; PICK="$3"; PICKC="$4"
-TMPR=""
-HEX="0123456789abcdef"; HEXC=16
-CHAR="qwertyuiopasdfghjklzxcvbnm"; CHARC=26
-NUM="0123456789"; NUMC=10
-COUNT=$(seq 1 1 $VALUE)
-list_pick=$HEX; C=$HEXC
-[ "$TYPE" == "char" ] &&  list_pick=$CHAR && C=$CHARC 
-[ "$TYPE" == "number" ] && list_pick=$NUM && C=$NUMC 
-[ "$TYPE" == "custom" ] && list_pick="$PICK" && C=$PICKC 
-      for i in $COUNT; do
-          random_pick=$(( $RANDOM % $C))
-          echo -n ${list_pick:$random_pick:1}
-      done
-
-}
 
 random_str(){
-random_length=$(random 1 custom 56789 5);
-random $random_length custom "qwertyuiopasdfghjklzxcvbnm0123456789QWERTYUIOPASDFGHJKLZXCVBNM" 63 | base64 | sed "s/=//g"
+local FROM
+local TO
+FROM="$1"; TO="$2"
+tr -dc A-Za-z0-9 </dev/urandom | head -c $(($FROM+$(($RANDOM%$(($TO-$FROM+1))))))
 }
-
-
 
 
 magisk_loader(){
 
-magisk_overlay=`random_str`
-magisk_postfsdata=`random_str`
-magisk_service=`random_str`
-magisk_daemon=`random_str`
-magisk_boot_complete=`random_str`
-magisk_loadpolicy=`random_str`
-dev_random=`random_str`
+
+magisk_postfsdata=`random_str 6 15`
+magisk_service=`random_str 6 15`
+magisk_boot_complete=`random_str 6 15`
+
+dev_random=`random_str 7 10`
 
 
 # always use "/dev/<random_string>" as magisk tmpfs
@@ -331,9 +302,33 @@ mount --bind \"\$FROM\" \"\$TO\"
 fi
 ) }
 
+revert_changes(){
+#remount system read-only to fix Magisk fail to mount mirror
+
+if mount -t rootfs | grep -q \" / \" || mount -t tmpfs | grep -q \" / \"; then
+rm -rf /magisk
+fi
+
+
+mount -o ro,remount /
+mount -o ro,remount /system
+mount -o ro,remount /vendor
+mount -o ro,remount /product
+mount -o ro,remount /system_ext
+
+# unmount patched files
+
+umount -l /system/etc/init
+umount -l /init.rc
+umount -l /system/etc/init/hw/init.rc
+umount -l /sepolicy
+umount -l /system/vendor/etc/selinux/precompiled_sepolicy
+}
+
 
 exit_magisk(){
 umount -l $MAGISKTMP
+revert_changes
 echo -n >/dev/.magisk_unblock
 }
 
@@ -391,6 +386,7 @@ exec >>\$MAGISKTMP/emu/record_logs.txt
 
 cd $MAGISKBASE 
 
+test ! -f \"./\$magisk_name\" && magisk_name=magisk32
 test ! -f \"./\$magisk_name\" && { echo -n >/dev/.overlay_unblock; exit_magisk; exit 0; }
 
 
@@ -425,22 +421,7 @@ ln -s ./magiskpolicy \$MAGISKTMP/supolicy 2>/dev/null
 
 mkdir -p \$MAGISKTMP/.magisk/mirror
 mkdir \$MAGISKTMP/.magisk/block
-
 touch \$MAGISKTMP/.magisk/config
-
-
-#remount system read-only to fix Magisk fail to mount mirror
-
-if mount -t rootfs | grep -q \" / \" || mount -t tmpfs | grep -q \" / \"; then
-rm -rf /magisk
-fi
-
-
-mount -o ro,remount /
-mount -o ro,remount /system
-mount -o ro,remount /vendor
-mount -o ro,remount /product
-mount -o ro,remount /system_ext
 
 restorecon -R /data/adb/magisk
 
@@ -448,13 +429,8 @@ $ADDITIONAL_SCRIPT
 
 [ ! -f \"\$MAGISKTMP/magisk\" ] && exit_magisk
 
-# unmount patched files
+revert_changes
 
-umount -l /system/etc/init
-umount -l /init.rc
-umount -l /system/etc/init/hw/init.rc
-umount -l /sepolicy
-umount -l /system/vendor/etc/selinux/precompiled_sepolicy
 "
 }
 
@@ -537,7 +513,7 @@ echo -n >/dev/.initrd-magisk
 clear
 
 
-echo "initrd-magisk Android x86 v1.1"
+echo "initrd-magisk Android x86 v1.2"
 echo -n Initialize Magisk environment...
 
 [ -z "$SRC" -a -n "$BOOT_IMAGE" ] && SRC=`dirname $BOOT_IMAGE`
@@ -584,12 +560,11 @@ if [ "$FIXFS" == "1" ]; then
 fi
 )
 
-MAGISKCORE=/magisk
-TMPDIR=/tmp
+
 MAGISKBASE=MAGISK_FILES_BASE
 . /bin/info.sh
 
-rm -rf /scripts/99_magisk
+rm -rf /scripts/*magisk*
 if [ -f "$APKFILE" ]; then
 cp /bin/magisk.sh /scripts/99_magisk
 mkdir -p "$MAGISKCORE"

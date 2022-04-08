@@ -1,3 +1,2 @@
-IS64BIT=true
-ABI=x86_64
-ABI32=x86
+MAGISKCORE=/magisk
+TMPDIR=/tmp

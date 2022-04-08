@@ -48,11 +48,10 @@ Android x86 directory will be like this:
 
 - Execute `99_magisk` script to patch Android's root directory
   - Mount tmpfs on `/android/dev`.
-  - On rootfs, directly add magisk binaries into `/android/magisk` and magisk services into `init.rc`
-  - On system-as-root, mount overlayfs on `/system/etc/init` and add magisk binaries and `magisk.rc`.
-  - Patch sepolicy file, dump it into `/android/dev/.overlay/sepolicy` and mount bind into `/sepolicy` or vendor precompiled sepolicy.
-  - Unmount `/android/dev`
-- `init` switch root to `/android` and execute `/init` to boot Android.
+  - **On rootfs (read-write rootdir)**, directly add magisk binaries into `/android/magisk` and inject magisk services into `/init.rc`. **On system-as-root (read-only rootdir)**, mount overlay on `/android/system/etc/init`, add magisk binaries into `/android/system/etc/init/magisk` and inject magisk services into  `/android/system/etc/init/magisk.rc`.
+  - **Pre-init sepolicy patch**: Patch sepolicy file by using `magiskpolicy` tool, dump it into `/android/dev/.overlay/sepolicy` and mount bind on `/sepolicy` or vendor precompiled sepolicy.
+  - Unmount `/android/dev`.
+- `init` switch root directory to `/android` and execute `/init` to boot Android.
 
 ### Android boot stage
 
@@ -84,27 +83,7 @@ git clone http://github.com/huskydg/initrd-magisk
 cd ~/initrd-magisk
 ```
 
-4. Default is x86_64 (64bit)
-```
-cat <<EOF >bin/info.sh
-IS64BIT=true
-ABI=x86_64
-ABI32=x86
-EOF
-```
-
-  If you want to build initrd-magisk for Android x86 (32bit):
-
-```
-cat <<EOF >bin/info.sh
-IS64BIT=false
-ABI=x86
-ABI32=x86
-EOF
-```
-
-
-5. Build with these command:
+4. Build with these command:
 ```
 chmod -R 777 *; find * | cpio -o -H newc | gzip > ../initrd-magisk.img
 ```
