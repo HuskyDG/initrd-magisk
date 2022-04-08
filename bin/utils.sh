@@ -24,3 +24,46 @@ MP="$1"
 		device_mount_data || mount -t tmpfs tmpfs "$MP"
 	fi
 }
+
+
+grep_prop() {
+  local REGEX="s/^$1=//p"
+  shift
+  local FILES=$@
+  [ -z "$FILES" ] && FILES='/android/system/build.prop'
+  cat $FILES 2>/dev/null | dos2unix | sed -n "$REGEX" | head -n 1
+}
+
+getprop(){
+   local result
+   local PROP="$1"
+   for file in /default.prop /system/build.prop /system/vendor/default.prop /system/vendor/build.prop /system/vendor/build.prop /system/vendor/odm/etc/build.prop /system/product/build.prop /system/system_ext/build.prop /vendor/build.prop /vendor/build.prop /vendor/odm/etc/build.prop /odm/etc/build.prop /product/build.prop /system_ext/build.prop; do
+       result="$(grep_prop "$PROP" "/android$file")"
+       [ ! -z "$result" ] && { echo "$result"; break; }
+   done
+}
+
+
+detect_sdk_abi(){
+API=$(getprop ro.build.version.sdk)
+ABI=$(getprop ro.product.cpu.abi)
+  if [ "$ABI" = "x86" ]; then
+    ARCH=x86
+    ABI32=x86
+    IS64BIT=false
+  elif [ "$ABI" = "arm64-v8a" ]; then
+    ARCH=arm64
+    ABI32=armeabi-v7a
+    IS64BIT=true
+  elif [ "$ABI" = "x86_64" ]; then
+    ARCH=x64
+    ABI32=x86
+    IS64BIT=true
+  else
+    ARCH=arm
+    ABI=armeabi-v7a
+    ABI32=armeabi-v7a
+    IS64BIT=false
+  fi
+}
+

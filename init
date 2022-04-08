@@ -90,25 +90,14 @@ extract_magisk_apk(){
 
 
 
-[ "$IS64BIT" == "true" ] && mkdir -p "$TMPDIR/magisk32"
+mkdir -p "$TMPDIR/magisk32"
 mkdir -p "$TMPDIR/magisk"
  
 
-unzip -o "$APKFILE" "lib/$ABI/*" -d "$TMPDIR/magisk" &>/dev/null
+unzip -o "$APKFILE" "lib/x86_64/*" -d "$TMPDIR/magisk" &>/dev/null
 chmod -R 777 "$TMPDIR/magisk"
-
-if [ "$IS64BIT" == "true" ]; then
-unzip -o "$APKFILE" "lib/$ABI32/*" -d "$TMPDIR/magisk32" &>/dev/null
+unzip -o "$APKFILE" "lib/x86/*" -d "$TMPDIR/magisk32" &>/dev/null
 chmod -R 777 "$TMPDIR/magisk32"
-cp -af "$TMPDIR/magisk32/lib/$ABI32/"* "$MAGISKCORE"
-fi
-
-cp -af "$TMPDIR/magisk/lib/$ABI/"* "$MAGISKCORE"
-
-for file in magisk32 magisk64 magiskinit magiskpolicy busybox magiskboot; do
-rm -rf "$MAGISKCORE/$file"
-cp "$MAGISKCORE/lib${file}.so" "$MAGISKCORE/$file"
-done
 
 
 unzip -o "$APKFILE" 'assets/*' -x 'assets/chromeos/*' -d "$MAGISKCORE" &>/dev/null
@@ -571,8 +560,7 @@ if [ "$FIXFS" == "1" ]; then
 fi
 )
 
-MAGISKCORE=/magisk
-TMPDIR=/tmp
+
 MAGISKBASE=MAGISK_FILES_BASE
 . /bin/info.sh
 

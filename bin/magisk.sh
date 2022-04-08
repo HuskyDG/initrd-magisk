@@ -1,11 +1,27 @@
+. /bin/utils.sh
+. /bin/info.sh
+
+detect_sdk_abi
+
+echo "Architecture: $ABI - 64bit: $IS64BIT"
+
+if [ "$IS64BIT" == "true" ]; then
+cp -af "$TMPDIR/magisk32/lib/$ABI32/"* "$MAGISKCORE"
+fi
+
+cp -af "$TMPDIR/magisk/lib/$ABI/"* "$MAGISKCORE"
+
+for file in magisk32 magisk64 magiskinit magiskpolicy busybox magiskboot; do
+rm -rf "$MAGISKCORE/${file}"
+cp "$MAGISKCORE/lib${file}.so" "$MAGISKCORE/${file}"
+done
+
 
 
 inittmp=/android/dev
 mount -t tmpfs tmpfs $inittmp
 mkdir -p $inittmp/.overlay/upper
 mkdir -p $inittmp/.overlay/work
-
-. /bin/utils.sh
 
 if mount -t tmpfs | grep -q " /android " || mount -t rootfs | grep -q " /android "; then
 # rootfs, patch ramdisk
@@ -20,7 +36,7 @@ cat /magisk/magisk.rc >>/android/init.rc
 else
 sysblock="$(mount | grep " /android " | tail -1 | awk '{ print $1 }')"
 mkdir /android/dev/system_root
-mount $sysblock /android/dev/system_root
+mount $sysblock /android/dev/system_root || mount -o ro $sysblock /dev/system_root
 # prepare for second stage
 chmod 750 $inittmp
 umount -l /android/system/etc/init
@@ -31,7 +47,6 @@ sed -i "s|MAGISK_FILES_BASE|/system/etc/init/magisk|g" /magisk/overlay.sh
 sed -i "s|MAGISK_FILES_BASE|/system/etc/init/magisk|g" /magisk/magisk.rc
 cp -a /magisk $inittmp/.overlay/upper
 cp /magisk/magisk.rc $inittmp/.overlay/upper/magisk.rc
-fi
 
 # fail back to magic mount if overlayfs is unavailable
 
@@ -62,6 +77,9 @@ if ! mount -t overlay | grep -q " /android/system/etc/init "; then
   echo -n >/android/system/etc/init/magisk.rc
   mount --bind $inittmp/.overlay/upper/magisk.rc /android/system/etc/init/magisk.rc
 fi
+fi
+
+
 
 # pre-init sepolicy patch
 
