@@ -48,7 +48,7 @@ Android x86 directory will be like this:
 
 - Execute `99_magisk` script to patch Android's root directory
   - Mount tmpfs on `/android/dev`.
-  - **On rootfs (read-write rootdir)**, directly add magisk binaries into `/android/magisk` and inject magisk services into `/init.rc`. **On system-as-root (read-only rootdir)**, mount overlay on `/android/system/etc/init`, add magisk binaries into `/android/system/etc/init/magisk` and inject magisk services into ` `/android/system/etc/init/magisk.rc`.
+  - **On rootfs (read-write rootdir)**, directly add magisk binaries into `/android/magisk` and inject magisk services into `/init.rc`. **On system-as-root (read-only rootdir)**, mount overlay on `/android/system/etc/init`, add magisk binaries into `/android/system/etc/init/magisk` and inject magisk services into  `/android/system/etc/init/magisk.rc`.
   - **Pre-init sepolicy patch**: Patch sepolicy file by using `magiskpolicy` tool, dump it into `/android/dev/.overlay/sepolicy` and mount bind on `/sepolicy` or vendor precompiled sepolicy.
   - Unmount `/android/dev`.
 - `init` switch root directory to `/android` and execute `/init` to boot Android.
