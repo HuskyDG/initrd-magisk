@@ -20,8 +20,6 @@ MP="$1"
 	elif [ -f /mnt/$SRC/data.img ]; then
 		remount_rw
 		mount -o loop,noatime /mnt/$SRC/data.img "$MP"
-	else
-		device_mount_data || mount -t tmpfs tmpfs "$MP"
 	fi
 }
 
