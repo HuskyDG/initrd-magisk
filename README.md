@@ -4,7 +4,9 @@ Another easy and convenient way to integrate Magisk into Android-x86 project (Bl
 
 ## How to use?
 
-Download initrd-magisk from [Release page](https://github.com/HuskyDG/initrd-magisk/releases)
+- Download initrd-magisk from [Release page](https://github.com/HuskyDG/initrd-magisk/releases)
+- Download Magisk stable build from [Magisk release page](https://github.com/topjohnwu/Magisk/releases/tag/v24.3) or download Magisk canary build from [this link](https://raw.githubusercontent.com/topjohnwu/magisk-files/canary/app-debug.apk)
+
 
 ### First way
 
