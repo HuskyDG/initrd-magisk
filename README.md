@@ -13,7 +13,7 @@ Download initrd-magisk from [Release page](https://github.com/HuskyDG/initrd-mag
 
 ### Second way
 
-1. Put `initrd-magisk.img` into Android-x86 directory. Search for line `initrd /$SOURCE_NAME/initrd.img` in GRUB custom code and change it to `initrd /$SOURCE_NAME/initrd-magisk.img`
+1. Put `initrd-magisk.img` into Android-x86 directory. Search for kernel cmdline `initrd /$SOURCE_NAME/initrd.img` in GRUB custom code and change it to `initrd /$SOURCE_NAME/initrd-magisk.img`
 2. Download **magisk apk** and put it as `magisk.apk` in Android-x86 directory.
 
 
@@ -93,9 +93,16 @@ chmod -R 777 *; find * | cpio -o -H newc | gzip > ../initrd-magisk.img
 
 - Disable all magisk module with flag `FIXFS=1`
 
+## Remove other SU
+
+Almost Android-x86 projects come with built-in SU. **It's recommended to remove these SU if you have Magisk.**
+
+1. In Android-x86 directory, extract `system.sfs` to `system.img`
+2. Download [unSU.zip](https://github.com/HuskyDG/huskydg.github.io/blob/main/unsu.zip?raw=true) and flash it in **Magisk app** 
+
 
 ## Important
 
-- If you have `rusty-magisk` installed (BlissOS 14, PrimeOS 2.0 come with `rusty-magisk` installed), `initrd-magisk` will try to invalidate it. **It's RECOMMENDED to remove it**.
+- If you have `rusty-magisk` installed, `initrd-magisk` will try to invalidate it. **It's RECOMMENDED to remove it and do not use it**.
 - If you update Android-x86 OTA, it might wipe out `initrd.img` so you will need to do again.
 
