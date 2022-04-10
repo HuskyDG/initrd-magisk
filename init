@@ -143,11 +143,13 @@ rm -rf /data/adb/post-fs-data.d/fix_mirror_mount.sh
 rm -rf /data/adb/service.d/fix_modules_not_show.sh
 
 
-# additional script to deal with bullshit faulty design of emulator
-# that close built-in root will remove magisk's /system/bin/su
-
 echo \"
 export PATH=\\\"\$MAGISKTMP:\\\$PATH\\\"
+
+set -x
+exec 2>>\\\"\$MAGISKTMP/emu/record_logs.txt\\\"
+
+# prevent /system/bin/su from removing
 
 if mount | grep -q \\\" /system/bin \\\" && [ -f \\\"/system/bin/magisk\\\" ]; then
     umount -l /system/bin/su
@@ -158,57 +160,43 @@ if mount | grep -q \\\" /system/bin \\\" && [ -f \\\"/system/bin/magisk\\\" ]; t
     mount --bind \\\"\$MAGISKTMP/magisk\\\" /system/bin/magisk
 fi
 
-install_app(){
+# install magisk app
+
+
+sleep 1
 MAGISK_STUB=\\\$(strings /data/adb/magisk.db | grep -oE 'requester..*' | cut -c10-)
 if [ ! -z \\\"\\\$MAGISK_STUB\\\" ]; then
-/system/bin/pm path \\\"\\\$MAGISK_STUB\\\" || /system/bin/pm install \\\"\$MAGISKTMP/.magisk/magisk.apk\\\"
+/system/bin/pm path \\\"\\\$MAGISK_STUB\\\" || /system/bin/pm install \\\"\$MAGISKTMP/magisk.apk\\\"
 else
-/system/bin/pm install \\\"\$MAGISKTMP/.magisk/magisk.apk\\\"
+/system/bin/pm install \\\"\$MAGISKTMP/magisk.apk\\\"
 fi
-}
-
-install_app &
 
 \" >\$MAGISKTMP/emu/magisksu_survival.sh
 
-# additional script to deal with bullshit faulty design of Bluestacks
-# that /system is a bind mountpoint
+# workaround unseperate data partition
 
 echo \"
 SCRIPT=\\\"\\\$0\\\"
 MAGISKTMP=\\\$(magisk --path) || MAGISKTMP=/sbin
-( #fix bluestacks
-MIRROR_SYSTEM=\\\"\\\$MAGISKTMP/.magisk/mirror/system\\\"
-test ! -d \\\"\\\$MIRROR_SYSTEM/android/system\\\" && exit
-test \\\"\\\$(cd /system; ls)\\\" == \\\"\\\$(cd \\\"\\\$MIRROR_SYSTEM\\\"; ls)\\\" && exit
-mount --bind \\\"\\\$MIRROR_SYSTEM/android/system\\\" \\\"\\\$MIRROR_SYSTEM\\\" )
+set -x
+exec 2>>\\\"\\\$MAGISKTMP/emu/record_logs.txt\\\"
 ( #fix mount data mirror
 function cmdline() { 
 	awk -F\\\"\\\${1}=\\\" '{print \\\$2}' < /proc/cmdline | cut -d' ' -f1 2> /dev/null
 }
 
-# additional script to deal with bullshit faulty design of Android-x86
-# that data is a bind mount from $SRC/data on ext4 partition
-
-
 SRC=\\\"\\\$(cmdline SRC)\\\"
+DATA=\\\"\\\$(cmdline DATA)\\\"
 test -z \\\"\\\$SRC\\\" && exit
-LIST_TEST=\\\"
-/data
-/data/adb
-/data/adb/magisk
-/data/adb/modules
-\\\"
-count=0
-for folder in \\\$LIST_TEST; do
-test \\\"\\\$(ls -A \\\$MAGISKTMP/.magisk/mirror/\\\$folder 2>/dev/null)\\\" == \\\"\\\$(ls -A \\\$folder 2>/dev/null)\\\" && count=\\\$((\\\$count + 1))
-done
-test \\\"\\\$count\\\" == 4 && exit
-count=0
-for folder in \\\$LIST_TEST; do
-test \\\"\\\$(ls -A \\\$MAGISKTMP/.magisk/mirror/data/\\\$SRC/\\\$folder 2>/dev/null)\\\" == \\\"\\\$(ls -A \\\$folder 2>/dev/null)\\\" && count=\\\$((\\\$count + 1))
-done
-if [ \\\"\\\$count\\\" == 4 ]; then
+test -z \\\"\\\$DATA\\\" && DATA=data
+
+inode_data1=\\\$(ls -id \\\"\\\$MAGISKTMP/.magisk/mirror/data/\\\$SRC/\\\$DATA\\\" | awk '{ print \\\$1 }')
+inode_data2=\\\$(ls -id \\\"\\\$MAGISKTMP/.magisk/mirror/data/\\\$SRC/data\\\" | awk '{ print \\\$1 }')
+inode_data=\\\$(ls -id \\\"/data\\\" | awk '{ print \\\$1 }')
+
+if [ \\\"\\\$inode_data1\\\" == \\\"\\\$inode_data\\\" ]; then
+mount --bind \\\"\\\$MAGISKTMP/.magisk/mirror/data/\\\$SRC/\\\$DATA\\\" \\\"\\\$MAGISKTMP/.magisk/mirror/data\\\"
+elif [ \\\"\\\$inode_data2\\\" == \\\"\\\$inode_data\\\" ]; then
 mount --bind \\\"\\\$MAGISKTMP/.magisk/mirror/data/\\\$SRC/data\\\" \\\"\\\$MAGISKTMP/.magisk/mirror/data\\\"
 fi )
 rm -rf \\\"\\\$SCRIPT\\\"
@@ -216,10 +204,19 @@ rm -rf \\\"\\\$SCRIPT\\\"
 echo \"
 SCRIPT=\\\"\\\$0\\\"
 MAGISKTMP=\\\$(magisk --path) || MAGISKTMP=/sbin
-CHECK=\\\"/data/adb/modules/.mk_\\\$RANDOM\\\$RANDOM\\\"
-touch \\\"\\\$CHECK\\\"
-test \\\"\\\$(ls -A \\\$MAGISKTMP/.magisk/modules 2>/dev/null)\\\" != \\\"\\\$(ls -A /data/adb/modules 2>/dev/null)\\\" && mount --bind \\\$MAGISKTMP/.magisk/mirror/data/adb/modules \\\$MAGISKTMP/.magisk/modules
-rm -rf \\\"\\\$CHECK\\\"
+set -x
+exec 2>>\\\"\\\$MAGISKTMP/emu/record_logs.txt\\\"
+inode_data1=\\\$(ls -id \\\"\\\$MAGISKTMP/.magisk/mirror/data/adb/modules\\\" | awk '{ print \\\$1 }')
+inode_data2=\\\$(ls -id \\\"\\\$MAGISKTMP/.magisk/modules\\\" | awk '{ print \\\$1 }')
+inode_data=\\\$(ls -id \\\"/data/adb/modules\\\" | awk '{ print \\\$1 }')
+
+if [ \\\"\\\$inode_data2\\\" != \\\"\\\$inode_data\\\" ]; then
+  if [ \\\"\\\$inode_data1\\\" == \\\"\\\$inode_data\\\" ]; then
+    mount --bind \\\"\\\$MAGISKTMP/.magisk/mirror/data/adb/modules\\\" \\\"\\\$MAGISKTMP/.magisk/modules\\\"
+  fi
+fi
+
+
 rm -rf \\\"\\\$SCRIPT\\\"\" >/data/adb/service.d/fix_modules_not_show.sh
 chmod 755 /data/adb/service.d/fix_modules_not_show.sh
 chmod 755 /data/adb/post-fs-data.d/fix_mirror_mount.sh; )"
@@ -266,7 +263,7 @@ $RM_RUSTY_MAGISK
               exec u:r:magisk:s0 root root -- $MAGISKTMP/magisk resetprop --delete init.svc_debug_pid.$magisk_postfsdata
               exec u:r:magisk:s0 root root -- $MAGISKTMP/magisk resetprop --delete init.svc_debug_pid.$magisk_service
               exec u:r:magisk:s0 root root -- $MAGISKTMP/magisk resetprop --delete init.svc_debug_pid.$magisk_boot_complete
-              exec u:r:magisk:s0 root root -- $MAGISKTMP/busybox sh -o standalone $MAGISKTMP/emu/magisksu_survival.sh
+              exec_background u:r:magisk:s0 root root -- $MAGISKTMP/busybox sh -o standalone $MAGISKTMP/emu/magisksu_survival.sh
           service $magisk_boot_complete $MAGISKTMP/magisk --boot-complete
               user root
               seclabel u:r:magisk:s0
@@ -403,7 +400,8 @@ for file in magisk32 magisk64 magiskinit magiskpolicy; do
   chmod 755 \$MAGISKBIN/\$file
 done
 cp -af ./magiskboot \$MAGISKBIN/magiskboot
-cp -af ./magisk.apk \$MAGISKTMP/.magisk
+cp -af ./magisk.apk \$MAGISKTMP/magisk.apk
+ln \$MAGISKTMP/magisk.apk \$MAGISKTMP/stub.apk
 cp -af ./busybox \$MAGISKBIN/busybox
 cp -af ./busybox \$MAGISKTMP
 chmod 755 \$MAGISKTMP/busybox
@@ -456,6 +454,7 @@ check_root()
 	fi
   INITRD_REAL=initrd_real.img
   APKFILE=/mnt/$SRC/magisk.apk
+  echo "$dev" >"$MAGISKCORE/config"
 	if [ -e /mnt/$SRC/$INITRD_REAL ]; then
 		zcat /mnt/$SRC/$INITRD_REAL | cpio -id > /dev/null
   elif [ -e /mnt/$SRC/initrd.img ]; then
@@ -512,8 +511,10 @@ echo -n >/dev/.initrd-magisk
 
 clear
 
+. /bin/utils.sh
+. /bin/info.sh
 
-echo "initrd-magisk Android x86 v1.2"
+echo "initrd-magisk Android x86 $initrd_magisk_ver"
 echo -n Initialize Magisk environment...
 
 [ -z "$SRC" -a -n "$BOOT_IMAGE" ] && SRC=`dirname $BOOT_IMAGE`
@@ -545,9 +546,7 @@ done
 
 echo ""
 
-( . /bin/utils.sh
-
-# disable magisk with flag FIXFS
+( # disable magisk with flag FIXFS
 
 if [ "$FIXFS" == "1" ]; then
     echo "Disable all Magisk modules"
@@ -562,7 +561,6 @@ fi
 
 
 MAGISKBASE=MAGISK_FILES_BASE
-. /bin/info.sh
 
 rm -rf /scripts/*magisk*
 if [ -f "$APKFILE" ]; then
