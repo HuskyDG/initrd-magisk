@@ -186,7 +186,9 @@ function cmdline() {
 }
 
 SRC=\\\"\\\$(cmdline SRC)\\\"
+BIPATH=\\\"\\\$(cmdline BOOT_IMAGE)\\\"
 DATA=\\\"\\\$(cmdline DATA)\\\"
+test -z \\\"\\\$SRC\\\" && SRC=\\\"\\\${BIPATH%/*}\\\"
 test -z \\\"\\\$SRC\\\" && exit
 test -z \\\"\\\$DATA\\\" && DATA=data
 
