@@ -5,8 +5,11 @@ detect_sdk_abi
 
 echo "Architecture: $ABI - 64bit: $IS64BIT"
 
+magisk_name="magisk32"
+
 if [ "$IS64BIT" == "true" ]; then
 cp -af "$TMPDIR/magisk32/lib/$ABI32/"* "$MAGISKCORE"
+magisk_name="magisk64"
 fi
 
 cp -af "$TMPDIR/magisk/lib/$ABI/"* "$MAGISKCORE"
@@ -22,6 +25,7 @@ inittmp=/android/dev
 mount -t tmpfs tmpfs $inittmp
 mkdir -p $inittmp/.overlay/upper
 mkdir -p $inittmp/.overlay/work
+mkdir -p $inittmp/policy_loaded
 
 if mount -t tmpfs | grep -q " /android " || mount -t rootfs | grep -q " /android "; then
 # rootfs, patch ramdisk
@@ -30,9 +34,15 @@ mkdir /android/magisk
 sed -i "s|MAGISK_FILES_BASE|/magisk|g" /magisk/overlay.sh
 sed -i "s|MAGISK_FILES_BASE|/magisk|g" /magisk/magisk.rc
 cp -a /magisk/* /android/magisk
-[ ! -f "/magisk/init.rc" ] && cat /init.rc >/magisk/init.rc
-[ -f "/magisk/init.rc" ] && cat /magisk/init.rc >/init.rc
+[ ! -f "/magisk/init.rc" ] && cat /android/init.rc >/magisk/init.rc
+[ -f "/magisk/init.rc" ] && cat /magisk/init.rc >/android/init.rc
 cat /magisk/magisk.rc >>/android/init.rc
+revert_changes(){
+ cat /magisk/init.rc >/android/init.rc
+ rm -rf /android/magisk
+ umount -l /android/sepolicy
+ umount -l /android/system/vendor/etc/selinux/precompiled_sepolicy
+}
 else
 sysblock="$(mount | grep " /android " | tail -1 | awk '{ print $1 }')"
 mkdir /android/dev/system_root
@@ -77,6 +87,14 @@ if ! mount -t overlay | grep -q " /android/system/etc/init "; then
   echo -n >/android/system/etc/init/magisk.rc
   mount --bind $inittmp/.overlay/upper/magisk.rc /android/system/etc/init/magisk.rc
 fi
+
+revert_changes(){
+ umount -l /android/system/etc/init
+ umount -l /android/sepolicy
+ umount -l /android/system/vendor/etc/selinux/precompiled_sepolicy
+}
+
+
 fi
 
 
@@ -96,14 +114,15 @@ echo "allow su * * *">"$module_policy"
 
 # /data on Android-x86 is not always encrypted
 
-
-for module in $(ls /data/adb/modules); do
-              if ! [ -f "/data/adb/modules/$module/disable" ] && [ -f "/data/adb/modules/$module/sepolicy.rule" ]; then
-                  cat  "/data/adb/modules/$module/sepolicy.rule" >>"$module_policy"
+for policy_dir in /data/adb/modules_update  /data/adb/modules /data/unencrypted/magisk; do
+         for module in $(ls $policy_dir); do
+              if ! [ -f "$policy_dir/$module/disable" ] && [ -f "$policy_dir/$module/sepolicy.rule" ] && [ ! -f "$inittmp/policy_loaded/$module" ]; then
+                  cat  "$policy_dir/$module/sepolicy.rule" >>"$module_policy"
                   echo "" >>"$module_policy"
-                  
+                  echo -n > "$inittmp/policy_loaded/$module"
               fi
           done
+done
 
 bind_policy(){
 policy="$1"
@@ -123,4 +142,20 @@ elif [ -f /android/sepolicy ]; then
   bind_policy /android/sepolicy
 fi
 umount -l $inittmp
+
+cp -af /magisk/magisk32 /sbin/magisk32
+cp -af /magisk/magisk64 /sbin/magisk64
+ln -fs "./$magisk_name" /sbin/magisk
+/sbin/magisk --daemon
+if [ -z "$(/sbin/magisk -v)" ]; then
+  echo "[!] Failed to load Magisk"
+  revert_changes
+else
+  echo "Magisk version: $(/sbin/magisk -v) ($(/sbin/magisk -V))"
+fi
+/sbin/magisk --stop
+killall -9 magiskd
+rm -rf /sbin/magisk /sbin/magisk32 /sbin/magisk64
 mount -o ro,remount /android
+
+sleep 0.2

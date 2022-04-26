@@ -546,6 +546,8 @@ while :; do
 	echo -n .
 done
 
+rm -rf /first_stage/bin/utils.sh /first_stage/bin/magisk.sh /first_stage/bin/info.sh
+
 echo ""
 
 ( # disable magisk with flag FIXFS

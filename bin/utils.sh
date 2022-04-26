@@ -27,6 +27,13 @@ data_bind=false
 	fi
 }
 
+remount_rw()
+{
+	# "foo" as mount source is given to workaround a Busybox bug with NFS
+	# - as it's ignored anyways it shouldn't harm for other filesystems.
+	mount -o remount,rw foo /mnt
+}
+
 
 grep_prop() {
   local REGEX="s/^$1=//p"
