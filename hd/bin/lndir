@@ -1,0 +1,52 @@
+#!/bin/sh
+
+[ "$1" = "-v" ] && verbose=-v && shift
+
+src=$1
+dst=${2:-.}
+
+usage()
+{
+	echo "Usage: $(basename $0) SRC_DIR [DST_DIR]"
+	echo
+	exit 1
+}
+
+make_dir()
+{
+	[ -d "$2" ] || mkdir -p "$2"
+	if [ "`id -u`" = "0" ]; then
+		chmod `stat -c "%a" "$1"` "$2"
+		chown `stat -c "%u.%g" "$1"` "$2"
+	fi
+}
+
+linkdir()
+{
+	local odir="$PWD"
+	make_dir "$1" "$2"
+	[ -d "$2" ] || mkdir -p "$2"
+	cd "$2"
+	local d="$PWD"
+	cd "$odir" && cd "$1"
+	for f in * .*; do
+		if [ "$f" != "." -a "$f" != ".." -a \( -e "$f" -o -L "$f" \) ]; then
+			if [ -d "$f" -a ! -L "$f" ]; then
+				linkdir "$f" "$d/$f"
+			else
+				ln $verbose "$f" "$d"
+			fi
+		fi
+	done
+	cd "$odir"
+}
+
+[ -d /system/bin ] && PATH=/system/bin:$PATH
+
+[ -z "$src" ] && usage
+
+[ ! -d "$src" ] && echo "$src is not a directory" && exit 2
+
+echo "$src" | grep -q /$ || dst=$dst/$(basename "$src")
+
+linkdir "$src" "$dst"
