@@ -27,7 +27,10 @@ mkdir -p $inittmp/.overlay/upper
 mkdir -p $inittmp/.overlay/work
 mkdir -p $inittmp/policy_loaded
 
-if mount -t tmpfs | grep -q " /android " || mount -t rootfs | grep -q " /android "; then
+checkrootfs="$(mountpoint -d /android)"
+
+if [ "${checkrootfs%:*}" == "0" ]; then
+echo "Android root directory is rootfs"
 # rootfs, patch ramdisk
 mount -o rw,remount /android
 mkdir /android/magisk
@@ -44,6 +47,7 @@ revert_changes(){
  umount -l /android/system/vendor/etc/selinux/precompiled_sepolicy
 }
 else
+echo "Android root directory is system-as-root"
 sysblock="$(mount | grep " /android " | tail -1 | awk '{ print $1 }')"
 mkdir /android/dev/system_root
 mount $sysblock /android/dev/system_root || mount -o ro $sysblock /android/dev/system_root
@@ -156,6 +160,5 @@ fi
 /sbin/magisk --stop
 killall -9 magiskd
 rm -rf /sbin/magisk /sbin/magisk32 /sbin/magisk64
-mount -o ro,remount /android
 
 sleep 0.2
