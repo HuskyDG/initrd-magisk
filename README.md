@@ -97,14 +97,26 @@ chmod -R 777 *; find * | cpio -o -H newc | gzip > ../initrd-magisk.img
 
 ## Remove other SU
 
-Almost Android-x86 projects come with built-in SU. **It's recommended to remove these SU if you have Magisk.**
+Almost Android-x86 projects come with built-in SU. Other SU conflict with Magisk. **It's recommended to remove these SU if you have Magisk.**
 
 1. In Android-x86 directory, extract `system.sfs` to `system.img`
 2. Download [unSU.zip](https://github.com/HuskyDG/huskydg.github.io/blob/main/unsu.zip?raw=true) and flash it in **Magisk app** 
 
+Although KernelSU doesn't conflict with Magisk, it will execute real SU if it exists in `PATH`, you can get RIP of KernelSU by using another kernel.
+
+## Selinux Permissive issue
+
+Selinux Permissive is very bad. For Magisk, it causes Magisk cannot completely hidden if you are using MagiskHide or any hiding mechanism (Shamiko). Developer didn't address this problem yet. 
+
+This module will patch selinux to premissive all contexts, apply patch for `untrusted_app`, `isolated_app` and enforce they. In short, it will make Selinux is enforced for normal apps but system are in Permissive. You can try installing this module to fix temporarily:
+
+- [Safety Permissive](http://huskydg.github.io/safety_permissive.zip)
+
+- [Safety Permissive (Late)](http://huskydg.github.io/safety_permissive_late.zip) - In some Android x86 build (such as PrimeOS 2.x), early enforcing causes system bootloop so use this instead.
 
 ## Important
 
 - If you have `rusty-magisk` installed, `initrd-magisk` will try to invalidate it. **It's RECOMMENDED to remove it and do not use it**.
+- Do not install Magisk (rusty-magisk) from GearLock.
 - If you update Android-x86 OTA, it might wipe out `initrd.img` so you will need to do again.
 
