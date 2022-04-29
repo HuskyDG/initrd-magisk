@@ -110,9 +110,7 @@ Selinux Permissive is very bad. For Magisk, it causes Magisk cannot completely h
 
 This module will patch selinux to premissive all contexts, apply patch for `untrusted_app`, `isolated_app` and enforce they. In short, it will make Selinux is enforced for normal apps but system are in Permissive. You can try installing this module to fix temporarily:
 
-- [Safety Permissive](http://huskydg.github.io/safety_permissive.zip)
-
-- [Safety Permissive (Late)](http://huskydg.github.io/safety_permissive_late.zip) - In some Android x86 build (such as PrimeOS 2.x), early enforcing causes system bootloop so use this instead.
+- [Safety Permissive](https://huskydg.github.io/hidden_permissive)
 
 ## Important
 
