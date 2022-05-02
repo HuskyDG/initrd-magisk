@@ -87,7 +87,7 @@ cd ~/initrd-magisk
 
 4. Build with these command:
 ```
-chmod -R 777 *; find * | cpio -o -H newc | gzip > ../initrd-magisk.img
+chmod -R 777 *; ln -fs /bin/ld-linux.so.2 lib/ld-linux.so.2; find * | cpio -o -H newc | gzip > ../initrd-magisk.img
 ```
 </details>
 
