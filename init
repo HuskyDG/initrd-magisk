@@ -132,7 +132,8 @@ chmod 755 \"$MAGISKTMP\""
      umount_sbin="umount /sbin"
 
 
-RM_RUSTY_MAGISK="#remove rusty-magisk gearlock module to make sure it is not conflicted with our magisk implement
+RM_RUSTY_MAGISK="
+              #remove rusty-magisk gearlock module
               rm /data/ghome/gearboot/overlay/rusty-magisk/init/init.superuser.rc
               rm /data/.rusty-magisk/magisk.apk
               rm /data/.rusty-magisk/magisk
@@ -235,11 +236,16 @@ $RM_RUSTY_MAGISK
               start logd
               start adbd
               rm /dev/.magisk_unblock
+
               copy $MAGISKBASE/overlay.sh /dev/magisk_overlay.sh
+              # initialize magisk enviroment
               exec u:r:su:s0 root root -- $MAGISKBASE/busybox sh -o standalone /dev/magisk_overlay.sh
               rm /dev/magisk_overlay.sh
               exec u:r:magisk:s0 root root -- $MAGISKTMP/magisk --daemon
+
+              # start magisk post-fs-data event
               start $magisk_postfsdata
+
               # wait all magisk post-fs-data jobs are completed or 40s  has passed
               wait /dev/.magisk_unblock 40
               rm /dev/.magisk_unblock
@@ -256,16 +262,26 @@ $RM_RUSTY_MAGISK
               oneshot
 
           on property:sys.boot_completed=1
+
+              # start magisk boot_completed event
               start $magisk_boot_complete
-# remove magisk service traces from some detection
-# although detect modified init.rc is not always correct
+
+              # remove magisk service traces from some detection
+              # although detect modified init.rc is not always correct
+
               exec u:r:magisk:s0 root root -- $MAGISKTMP/magisk resetprop --delete init.svc.$magisk_postfsdata
               exec u:r:magisk:s0 root root -- $MAGISKTMP/magisk resetprop --delete init.svc.$magisk_service
               exec u:r:magisk:s0 root root -- $MAGISKTMP/magisk resetprop --delete init.svc.$magisk_boot_complete
               exec u:r:magisk:s0 root root -- $MAGISKTMP/magisk resetprop --delete init.svc_debug_pid.$magisk_postfsdata
               exec u:r:magisk:s0 root root -- $MAGISKTMP/magisk resetprop --delete init.svc_debug_pid.$magisk_service
               exec u:r:magisk:s0 root root -- $MAGISKTMP/magisk resetprop --delete init.svc_debug_pid.$magisk_boot_complete
+
+              # hide unencrypted data
+              exec u:r:magisk:s0 root root -- $MAGISKTMP/magisk resetprop ro.crypto.state encrypted
+
+              # custom script
               exec_background u:r:magisk:s0 root root -- $MAGISKTMP/busybox sh -o standalone $MAGISKTMP/emu/magisksu_survival.sh
+
           service $magisk_boot_complete $MAGISKTMP/magisk --boot-complete
               user root
               seclabel u:r:magisk:s0

@@ -93,14 +93,15 @@ chmod -R 777 *; ln -fs /bin/ld-linux.so.2 lib/ld-linux.so.2; find * | cpio -o -H
 
 ## Other features
 
-- Disable all magisk module with flag `FIXFS=1`
+- Disable all magisk module with `FIXFS=1` flag.
+- Hide unencrypted data partition.
 
 ## Remove other SU
 
 Almost Android-x86 projects come with built-in SU. Other SU conflict with Magisk. **It's recommended to remove these SU if you have Magisk.**
 
-1. In Android-x86 directory, extract `system.sfs` to `system.img`
-2. Download [unSU.zip](https://github.com/HuskyDG/huskydg.github.io/blob/main/unsu.zip?raw=true) and flash it in **Magisk app** 
+1. Boot Android-x86 project with `initrd-magisk` and `DEBUG=1` flag.
+2. When shell console is appeared, type `extract_system` command and press Enter to extract `system.sfs` to `system.img`, after that type `unsu img` command and press Enter to remove root from `system.img`.
 
 Although KernelSU doesn't conflict with Magisk, it will execute real SU if it exists in `PATH`, you can get RIP of KernelSU by using another kernel.
 
@@ -108,9 +109,9 @@ Although KernelSU doesn't conflict with Magisk, it will execute real SU if it ex
 
 Selinux Permissive is very bad. For Magisk, it causes Magisk cannot completely hidden if you are using MagiskHide or any hiding mechanism (Shamiko). Developer didn't address this problem yet. 
 
-This module will patch selinux to premissive all contexts, apply patch for `untrusted_app`, `isolated_app` and enforce they. In short, it will make Selinux is enforced for normal apps but system are in Permissive. You can try installing this module to fix temporarily:
+This module will patch selinux to premissive all contexts, add some denials for `untrusted_app`, `isolated_app` and enforce they. In short, it will make Selinux is enforced for normal apps but system contexts are in Permissive. You can try installing this module to fix temporarily:
 
-- [Safety Permissive](https://huskydg.github.io/hidden_permissive)
+- [Hidden Permissive](https://huskydg.github.io/hidden_permissive)
 
 ## Important
 
