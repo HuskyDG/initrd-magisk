@@ -26,12 +26,12 @@ umount -l /alt_image_loop
 
 
 
-[ "$VALUE" == "system.img" ] && VALUE="/mnt/$SOURCE_OS/system.img"
-if [ ! -f "$VALUE" ]; then
+[ "$VALUE" == "img" ] && SYSTEMIMG="/mnt/$SOURCE_OS/system.img"
+if [ ! -f "$SYSTEMIMG" ] && [ ! -z "$SYSTEMIMG" ]; then
     abort "! Cannot find system image"
-else
+elif [ ! -z "$SYSTEMIMG" ]; then
    mkdir /image_loop
-   mount -o ro,loop "$VALUE" /image_loop
+   mount -o ro,loop "$SYSTEMIMG" /image_loop
    mount -o rw,remount /image_loop || abort "! Failed to mount loop system.img"
 fi
 
@@ -44,7 +44,7 @@ ui_print "Mounting...";
 
 checkrootfs="$(mountpoint -d /android)"
 
-if [ -f "$VALUE" ]; then
+if [ -f "$SYSTEMIMG" ] && [ ! -z  "$SYSTEMIMG" ]; then
   root=/image_loop
   if [ "${checkrootfs%:*}" == "0" ]; then
     mkdir /alt_image_loop

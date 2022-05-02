@@ -16,11 +16,11 @@ SOURCE_OS="$(cmdline SRC)"
 KERNEL_IMAGE="$(cmdline BOOT_IMAGE)"
 [ -z "$SOURCE_OS" ] && SOURCE_OS="$(dirname "$KERNEL_IMAGE")"
 
-if [ -f "/sfs/system.img" ] && [ -d "/mnt/$SOURCE_OS" ]; then
+if [ -f "/sfs/system.img" ] && [ -f "/mnt/$SOURCE_OS/system.sfs" ]; then
     echo "Extracting system image..."
     cp /sfs/system.img "/mnt/$SOURCE_OS/system.img" || abort "! Failed to create system.img"
     rm -rf "/mnt/$SOURCE_OS/system.sfs"
-elif [ -d "/mnt/$SOURCE_OS" ]; then
+elif [ -f "/mnt/$SOURCE_OS/system.sfs" ]; then
     echo "Extracting system image..."
     mount -o ro "/mnt/$SOURCE_OS/system.sfs" /sfs || abort "! Failed to mount system.sfs"
     if [ -f "/sfs/system.img" ]; then 
@@ -36,7 +36,7 @@ elif [ -d "/mnt/$SOURCE_OS" ]; then
         mount -o rw,remount /image_loop || abort "! Failed to mount loop system.img"
         cp -af /sys/* /image_loop || abort "! Failed to copy files from system.sfs to system.img"
     fi
-elif [ -d "/mnt/$SOURCE_OS/system.img" ]; then
+elif [ -f "/mnt/$SOURCE_OS/system.img" ]; then
     abort "! System is already extracted"
 else
     abort "! Cannot find system image"
