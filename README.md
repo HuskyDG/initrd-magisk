@@ -100,9 +100,9 @@ chmod -R 777 *; ln -fs /bin/ld-linux.so.2 lib/ld-linux.so.2; find * | cpio -o -H
 
 Almost Android-x86 projects come with built-in SU. Other SU conflict with Magisk. **It's recommended to remove these SU if you have Magisk.**
 
-1. Boot Android-x86 project with `initrd-magisk` and `DEBUG=1` flag.
-2. When shell console is appeared, type `extract_system` command and press Enter to extract `system.sfs` to `system.img`, after that type `unsu img` command and press Enter to remove root from `system.img`.
-3. Restart to use `system.img`.
+1. Boot Android-x86 project with `initrd-magisk` and `DEBUG=1` flag. If you have GearLock, you can boot into Recovery Mode and open `Virtual Terminal Command`.
+2. When shell console is appeared, type `extract_system` command and press Enter to extract `system.sfs` to `system.img`. After that type `unsu img` command and press Enter to remove root from `system.img`. If it fails to remove SU and throw a error message `! System is not writeable`, please reboot and try again!
+3. Restart the system.
 
 Although KernelSU doesn't conflict with Magisk, it will execute real SU if it exists in `PATH`, you can get RIP of KernelSU by using another kernel.
 
