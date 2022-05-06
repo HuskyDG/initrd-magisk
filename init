@@ -492,9 +492,7 @@ remount_rw()
 }
 
 warn_no_magisk(){
-echo "WARNING: Cannot find magisk.apk"
-echo "Boot Android with no Magisk"
-sleep 1
+echo "WARNING: magisk.apk does not exist. Boot Android with no Magisk"
 }
 
 
@@ -532,7 +530,7 @@ clear
 . /bin/utils.sh
 . /bin/info.sh
 
-echo "initrd-magisk Android x86 $initrd_magisk_ver"
+echo_log "initrd-magisk Android x86 $initrd_magisk_ver"
 echo -n Initialize Magisk environment...
 
 [ -z "$SRC" -a -n "$BOOT_IMAGE" ] && SRC=`dirname $BOOT_IMAGE`
@@ -547,6 +545,7 @@ for c in `cat /proc/cmdline`; do
 			;;
 	esac
 done
+
 
 mkdir -p /first_stage
 mkdir -p /tmp
@@ -569,11 +568,11 @@ echo ""
 ( # disable magisk with flag FIXFS
 
 if [ "$FIXFS" == "1" ]; then
-    echo "Disable all Magisk modules"
+    echo_log "Disable all Magisk modules"
     mkdir /data
     mount_data_part /data
     for magisk_module in $(ls /data/adb/modules); do
-        echo -n >/data/adb/modules/$magisk_module/disable
+        echo -n >/data/adb/modules/$magisk_module/disable && debug_log "initrd-magisk: disable $magisk_module"
     done
     umount -l /data
 fi

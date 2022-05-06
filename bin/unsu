@@ -4,14 +4,9 @@ exec 2>/dev/null
 
 VALUE="$1"
 
-cmdline() { 
-	awk -F"${1}=" '{print $2}' < /proc/cmdline | cut -d' ' -f1 2> /dev/null
-}
+. /bin/utils.sh
 
-
-SOURCE_OS="$(cmdline SRC)"
-KERNEL_IMAGE="$(cmdline BOOT_IMAGE)"
-[ -z "$SOURCE_OS" ] && SOURCE_OS="$(dirname "$KERNEL_IMAGE")"
+get_src
 
 ui_print() { 
 echo "$1"

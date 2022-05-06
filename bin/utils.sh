@@ -52,6 +52,18 @@ getprop(){
    done
 }
 
+debug_log(){
+  if [ ! -z "$DEBUG" ]; then
+      echo "$1" | tee -a /tmp/initrd-magisk.log
+  else
+      echo "$1" >>/tmp/initrd-magisk.log
+  fi
+}
+
+echo_log(){
+  echo "$1" | tee -a /tmp/initrd-magisk.log
+}
+
 
 detect_sdk_abi(){
 API=$(getprop ro.build.version.sdk)
@@ -68,11 +80,27 @@ ABI=$(getprop ro.product.cpu.abi)
     ARCH=x64
     ABI32=x86
     IS64BIT=true
-  else
+ elif [ "$ABI" = "armeabi-v7a" ]; then
     ARCH=arm
     ABI=armeabi-v7a
     ABI32=armeabi-v7a
     IS64BIT=false
   fi
+}
+
+cmdline() { 
+	awk -F"${1}=" '{print $2}' < /proc/cmdline | cut -d' ' -f1 2> /dev/null
+}
+
+
+abort(){
+echo "$1"; exit 1;
+umount -l /image_loop
+}
+
+get_src(){
+SOURCE_OS="$(cmdline SRC)"
+KERNEL_IMAGE="$(cmdline BOOT_IMAGE)"
+[ -z "$SOURCE_OS" ] && SOURCE_OS="$(dirname "$KERNEL_IMAGE")"
 }
 
