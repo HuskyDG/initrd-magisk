@@ -1,7 +1,19 @@
+( # MAGISK SCRIPT
 . /bin/utils.sh
 . /bin/info.sh
+set -
 
 ( # BEGIN : inject magisk
+
+lazy_umount(){
+    umount -l "$1" && debug_log "initrd-magisk unmount: $1"
+}
+
+if [ ! -z "$DEBUG" ]; then
+    SELOGFILE=/tmp/magiskpolicy.txt
+else
+    SELOGFILE=/dev/null
+fi
 
 unset ABI
 
@@ -47,7 +59,7 @@ mount -o rw,remount /android && debug_log "initrd-magisk: remounted /android as 
 mkdir /android/magisk
 sed -i "s|MAGISK_FILES_BASE|/magisk|g" /magisk/overlay.sh
 sed -i "s|MAGISK_FILES_BASE|/magisk|g" /magisk/magisk.rc
-cp -a /magisk/* /android/magisk && debug_log "initrd-magisk: copy items /magisk -> /android"
+cp -a /magisk/* /android/magisk && debug_log "initrd-magisk: copy /magisk -> /android/magisk"
 [ ! -f "/magisk/init.rc" ] && cat /android/init.rc >/magisk/init.rc
 [ -f "/magisk/init.rc" ] && cat /magisk/init.rc >/android/init.rc
 cat /magisk/magisk.rc >>/android/init.rc && debug_log "initrd-magisk: inject magisk services into init.rc"
@@ -55,8 +67,8 @@ revert_changes(){
  debug_log "initrd-magisk: revert patches"
  cat /magisk/init.rc >/android/init.rc && debug_log "initrd-magisk restore: /android/init.rc"
  rm -rf /android/magisk 
- umount -l /android/sepolicy && debug_log "initrd-magisk umounted: /android/init.rc"
- umount -l /android/system/vendor/etc/selinux/precompiled_sepolicy && debug_log "initrd-magisk umounted: /android/init.rc"
+ lazy_umount /android/sepolicy
+ lazy_umount /android/system/vendor/etc/selinux/precompiled_sepolicy
 }
 elif mountpoint -q "/android"; then
 echo_log "Android root directory is system-as-root"
@@ -65,7 +77,7 @@ mkdir /android/dev/system_root
 mount $sysblock /android/dev/system_root || mount -o ro $sysblock /android/dev/system_root
 # prepare for second stage
 chmod 750 $inittmp
-umount -l /android/system/etc/init
+lazy_umount /android/system/etc/init
 mount -t overlay tmpfs -o lowerdir=/android/system/etc/init,upperdir=$inittmp/.overlay/upper,workdir=$inittmp/.overlay/work /android/system/etc/init && { 
 debug_log "mount: /android/system/etc/init <- overlay"
 chcon u:object_r:system_file:s0 $inittmp/.overlay/upper
@@ -76,7 +88,7 @@ chown 0.2000 $inittmp/.overlay/upper
 
 sed -i "s|MAGISK_FILES_BASE|/system/etc/init/magisk|g" /magisk/overlay.sh
 sed -i "s|MAGISK_FILES_BASE|/system/etc/init/magisk|g" /magisk/magisk.rc
-cp -a /magisk $inittmp/.overlay/upper && debug_log "initrd-magisk: copy folder magisk -> $inittmp/.overlay/upper"
+cp -a /magisk $inittmp/.overlay/upper && debug_log "initrd-magisk: copy /magisk -> $inittmp/.overlay/upper/magisk"
 cp /magisk/magisk.rc $inittmp/.overlay/upper/magisk.rc  && debug_log "initrd-magisk: inject magisk services into init.rc"
 MAGISKDIR=/android/system/etc/init/magisk
 
@@ -120,13 +132,12 @@ fi
 
 revert_changes(){
  debug_log "initrd-magisk: revert patches"
- umount -l /android/system/etc/init && debug_log "initrd-magisk umounted: /android/system/etc/init"
- umount -l /android/sepolicy && debug_log "initrd-magisk umounted: /android/sepolicy"
- umount -l /android/system/vendor/etc/selinux/precompiled_sepolicy && debug_log "initrd-magisk umounted: /android/system/vendor/etc/selinux/precompiled_sepolicy"
+ lazy_umount /android/system/etc/init
+ lazy_umount /android/sepolicy
+ lazy_umount /android/system/vendor/etc/selinux/precompiled_sepolicy
 }
 else
     echo_log "WARNING: Android system is not mounted" 
-
 fi
 
 
@@ -139,13 +150,10 @@ mount_data_part /data
 [ ! -f "/magisk/magiskpolicy" ] && ln -sf ./magiskinit /magisk/magiskpolicy
 
 module_policy="$inittmp/.overlay/sepolicy.rules"
-
 rm -rf "$module_policy"
-
 echo "allow su * * *">"$module_policy"
 
 # /data on Android-x86 is not always encrypted
-
 for policy_dir in /data/adb/modules_update  /data/adb/modules /data/unencrypted/magisk; do
          for module in $(ls $policy_dir); do
               if ! [ -f "$policy_dir/$module/disable" ] && [ -f "$policy_dir/$module/sepolicy.rule" ] && [ ! -f "$inittmp/policy_loaded/$module" ]; then
@@ -159,14 +167,23 @@ done
 bind_policy(){
 policy="$1"
 umount -l "$1"
-/magisk/magiskpolicy --load "$policy" --save "$inittmp/.overlay/policy" --magisk "allow * magisk_file lnk_file *" && debug_log "magiskpolicy: inject magisk built-in rules"
-/magisk/magiskpolicy --load "$inittmp/.overlay/policy" --save "$inittmp/.overlay/policy" --apply "$module_policy" && debug_log "magiskpolicy: inject magisk modules sepolicy.rule"
+(
+/magisk/magiskpolicy --load "$policy" --save "$inittmp/.overlay/policy" --magisk "allow * magisk_file lnk_file *" 2>>/tmp/magiskpolicy.txt && debug_log "magiskpolicy: inject magisk built-in rules"
+/magisk/magiskpolicy --load "$inittmp/.overlay/policy" --save "$inittmp/.overlay/policy" --apply "$module_policy" 2>>/tmp/magiskpolicy.txt && debug_log "magiskpolicy: inject magisk modules sepolicy.rule"
+) 2>>$SELOGFILE
 mount --bind $inittmp/.overlay/policy "$policy" && debug_log "mnt_bind: $policy <- $inittmp/.overlay/policy"
 }
 
 umount -l /data
 
 # bind mount modified sepolicy
+
+rm -rf /tmp/magiskpolicy.txt
+[ ! -z "$DEBUG" ] && {
+    cp -af "$module_policy" /tmp/magiskpolicy.txt
+    echo "
+---------------------------------">>/tmp/magiskpolicy.txt
+    }
 
 if [ -f /android/system/vendor/etc/selinux/precompiled_sepolicy ]; then
   bind_policy /android/system/vendor/etc/selinux/precompiled_sepolicy
@@ -196,15 +213,16 @@ fi
 ( # after
 get_src
 gzip -f /tmp/initrd-magisk.log
+gzip -f /tmp/magiskpolicy.txt
 cp /tmp/log /tmp/ex_log
 gzip -f /tmp/ex_log
 if [ ! -z "$SOURCE_OS" ]; then
     mkdir "/mnt/$SOURCE_OS/logcat"
     [ -d "/mnt/$SOURCE_OS/logcat" ] && {
         cp /tmp/initrd-magisk.log.gz "/mnt/$SOURCE_OS/logcat/initrd-magisk.txt.gz"
+        cp /tmp/magiskpolicy.txt.gz "/mnt/$SOURCE_OS/logcat/magiskpolicy.txt.gz"
         cp /tmp/ex_log.gz "/mnt/$SOURCE_OS/logcat/debug_log.txt.gz"
     }
 fi
-)
-
+) )
 
