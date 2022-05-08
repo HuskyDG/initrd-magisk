@@ -140,8 +140,9 @@ RM_RUSTY_MAGISK="
               rm /data/ghome/.local/bin/rusty-magisk"
 
 ADDITIONAL_SCRIPT="( # addition script
-rm -rf /data/adb/post-fs-data.d/fix_mirror_mount.sh
-rm -rf /data/adb/service.d/fix_modules_not_show.sh
+chattr -i /data/adb/post-fs-data.d/0-android_x86.sh /data/adb/service.d/0-android_x86.sh
+rm -rf /data/adb/post-fs-data.d/0-android_x86.sh
+rm -rf /data/adb/service.d/0-android_x86.sh
 
 
 echo \"
@@ -174,7 +175,7 @@ fi
 
 \" >\$MAGISKTMP/emu/magisksu_survival.sh
 
-# workaround unseperate data partition
+# workaround non-device data partition (data partition is a mount bind)
 
 echo \"
 SCRIPT=\\\"\\\$0\\\"
@@ -202,8 +203,7 @@ mount --bind \\\"\\\$MAGISKTMP/.magisk/mirror/data/\\\$SRC/\\\$DATA\\\" \\\"\\\$
 elif [ \\\"\\\$inode_data2\\\" == \\\"\\\$inode_data\\\" ]; then
 mount --bind \\\"\\\$MAGISKTMP/.magisk/mirror/data/\\\$SRC/data\\\" \\\"\\\$MAGISKTMP/.magisk/mirror/data\\\"
 fi )
-rm -rf \\\"\\\$SCRIPT\\\"
-\" >/data/adb/post-fs-data.d/fix_mirror_mount.sh
+\" >/data/adb/post-fs-data.d/0-android_x86.sh
 echo \"
 SCRIPT=\\\"\\\$0\\\"
 MAGISKTMP=\\\$(magisk --path) || MAGISKTMP=/sbin
@@ -218,11 +218,9 @@ if [ \\\"\\\$inode_data2\\\" != \\\"\\\$inode_data\\\" ]; then
     mount --bind \\\"\\\$MAGISKTMP/.magisk/mirror/data/adb/modules\\\" \\\"\\\$MAGISKTMP/.magisk/modules\\\"
   fi
 fi
-
-
-rm -rf \\\"\\\$SCRIPT\\\"\" >/data/adb/service.d/fix_modules_not_show.sh
-chmod 755 /data/adb/service.d/fix_modules_not_show.sh
-chmod 755 /data/adb/post-fs-data.d/fix_mirror_mount.sh; )"
+\" >/data/adb/service.d/0-android_x86.sh
+chmod 755 /data/adb/service.d/0-android_x86.sh
+chmod 755 /data/adb/post-fs-data.d/0-android_x86.sh; )"
 
 
 EXPORT_PATH="export PATH /sbin:/system/bin:/system/xbin:/vendor/bin:/gearlock/bin:/apex/com.android.runtime/bin:/apex/com.android.art/bin"
@@ -289,66 +287,53 @@ $RM_RUSTY_MAGISK
 
 
 overlay_loader="#!$MAGISKBASE/busybox sh
-
 export PATH=/sbin:/system/bin:/system/xbin
-
-
+# initial function
 mnt_tmpfs(){ (
-# MOUNT TMPFS ON A DIRECTORY
-MOUNTPOINT=\"\$1\"
-mkdir -p \"\$MOUNTPOINT\"
-mount -t tmpfs -o \"mode=0755\" tmpfs \"\$MOUNTPOINT\" 2>/dev/null
+    # MOUNT TMPFS ON A DIRECTORY
+    MOUNTPOINT=\"\$1\"
+    mkdir -p \"\$MOUNTPOINT\"
+    mount -t tmpfs -o \"mode=0755\" tmpfs \"\$MOUNTPOINT\" 2>/dev/null
 ) }
-
-
-
 mnt_bind(){ (
-# SHORTCUT BY BIND MOUNT
-FROM=\"\$1\"; TO=\"\$2\"
-if [ -L \"\$FROM\" ]; then
-SOFTLN=\"\$(readlink \"\$FROM\")\"
-ln -s \"\$SOFTLN\" \"\$TO\"
-elif [ -d \"\$FROM\" ]; then
-mkdir -p \"\$TO\" 2>/dev/null
-mount --bind \"\$FROM\" \"\$TO\"
-else
-echo -n 2>/dev/null >\"\$TO\"
-mount --bind \"\$FROM\" \"\$TO\"
-fi
+    # SHORTCUT BY BIND MOUNT
+    FROM=\"\$1\"; TO=\"\$2\"
+    if [ -L \"\$FROM\" ]; then
+        SOFTLN=\"\$(readlink \"\$FROM\")\"
+        ln -s \"\$SOFTLN\" \"\$TO\"
+    elif [ -d \"\$FROM\" ]; then
+        mkdir -p \"\$TO\" 2>/dev/null
+        mount --bind \"\$FROM\" \"\$TO\"
+    else
+        echo -n 2>/dev/null >\"\$TO\"
+        mount --bind \"\$FROM\" \"\$TO\"
+    fi
 ) }
-
 revert_changes(){
-#remount system read-only to fix Magisk fail to mount mirror
-
-if mount -t rootfs | grep -q \" / \" || mount -t tmpfs | grep -q \" / \"; then
-rm -rf /magisk
-fi
-
-
-mount -o ro,remount /
-mount -o ro,remount /system
-mount -o ro,remount /vendor
-mount -o ro,remount /product
-mount -o ro,remount /system_ext
-
-# unmount patched files
-
-umount -l /system/etc/init
-umount -l /init.rc
-umount -l /system/etc/init/hw/init.rc
-umount -l /sepolicy
-umount -l /system/vendor/etc/selinux/precompiled_sepolicy
+     #remount system read-only to fix Magisk fail to mount mirror
+     if mount -t rootfs | grep -q \" / \" || mount -t tmpfs | grep -q \" / \"; then
+        rm -rf /magisk
+     fi
+     mount -o ro,remount /
+     mount -o ro,remount /system
+     mount -o ro,remount /vendor
+     mount -o ro,remount /product
+     mount -o ro,remount /system_ext
+     # unmount patched files
+     umount -l /system/etc/init
+     umount -l /init.rc
+     umount -l /system/etc/init/hw/init.rc
+     umount -l /sepolicy
+     umount -l /system/vendor/etc/selinux/precompiled_sepolicy
 }
-
-
 exit_magisk(){
-umount -l $MAGISKTMP
-revert_changes
-echo -n >/dev/.magisk_unblock
+     umount -l $MAGISKTMP
+     revert_changes
+     echo -n >/dev/.magisk_unblock
 }
 
-
-API=\$(getprop ro.build.version.sdk)
+# detect architecture
+  API=\$(getprop ro.build.version.sdk)
   ABI=\$(getprop ro.product.cpu.abi)
   if [ \"\$ABI\" = \"x86\" ]; then
     ARCH=x86
@@ -380,15 +365,14 @@ count=0
 # force umount /sbin tmpfs
 
 until ! mount | grep -q \" /sbin \"; do
-[ "$count" -gt "10" ] && break
-umount -l /sbin 2>/dev/null
-sleep 0.1
-count=$(($count+1))
-test ! -d /sbin && break
+    [ "$count" -gt "10" ] && break
+    umount -l /sbin 2>/dev/null
+    sleep 0.1
+    count=$(($count+1))
+    test ! -d /sbin && break
 done
 
 # mount magisk tmpfs path
-
 $mount_sbin
 
 MAGISKTMP=$MAGISKTMP
@@ -400,51 +384,63 @@ exec 2>>\$MAGISKTMP/emu/record_logs.txt
 exec >>\$MAGISKTMP/emu/record_logs.txt
 
 cd $MAGISKBASE 
-
 test ! -f \"./\$magisk_name\" && magisk_name=magisk32
 test ! -f \"./\$magisk_name\" && { echo -n >/dev/.overlay_unblock; exit_magisk; exit 0; }
 
-
 MAGISKBIN=/data/adb/magisk
 mkdir /data/unencrypted
-for mdir in modules post-fs-data.d service.d magisk; do
-test ! -d /data/adb/\$mdir && rm -rf /data/adb/\$mdir
-mkdir /data/adb/\$mdir 2>/dev/null
+chmod 700 /data/unencrypted
+
+# create some folder in magisk secure directory
+for mdir in . modules post-fs-data.d service.d magisk; do
+    chattr -i /data/adb/\$mdir
+    test ! -d /data/adb/\$mdir && rm -rf /data/adb/\$mdir
+    mkdir -p /data/adb/\$mdir 2>/dev/null
 done
-for file in magisk32 magisk64 magiskinit magiskpolicy; do
+
+# make sure /data/adb/magisk is not immune
+chattr -R -i /data/adb/magisk
+
+# copy files to MAGISKBIN and MAGISKTMP
+for file in magisk32 magisk64 magiskinit magiskpolicy busybox; do
   cp -af ./\$file \$MAGISKTMP/\$file 2>/dev/null
   chmod 755 \$MAGISKTMP/\$file
   cp -af ./\$file \$MAGISKBIN/\$file 2>/dev/null
   chmod 755 \$MAGISKBIN/\$file
 done
+
+# copy magiskboot and magisk.apk
 cp -af ./magiskboot \$MAGISKBIN/magiskboot
 cp -af ./magisk.apk \$MAGISKTMP/magisk.apk
 ln \$MAGISKTMP/magisk.apk \$MAGISKTMP/stub.apk
-cp -af ./busybox \$MAGISKBIN/busybox
-cp -af ./busybox \$MAGISKTMP
-chmod 755 \$MAGISKTMP/busybox
-\$MAGISKTMP/busybox --install -s \$MAGISKTMP
+
+# copy some magisk internal stuff
 cp -af ./assets/* \$MAGISKBIN
 
-# create symlink / applet
-
+# create symlink to magisk
 ln -s ./\$magisk_name \$MAGISKTMP/magisk 2>/dev/null
 ln -s ./magisk \$MAGISKTMP/su 2>/dev/null
 ln -s ./magisk \$MAGISKTMP/resetprop 2>/dev/null
 ln -s ./magisk \$MAGISKTMP/magiskhide 2>/dev/null
+
+# from 24302 magiskpolicy is no longer an applet of magiskinit
+# only create symlink if magiskpolicy is not found
 [ ! -f \"\$MAGISKTMP/magiskpolicy\" ] && ln -s ./magiskinit \$MAGISKTMP/magiskpolicy 2>/dev/null
 ln -s ./magiskpolicy \$MAGISKTMP/supolicy 2>/dev/null
 
+# create some folder for magisk
 mkdir -p \$MAGISKTMP/.magisk/mirror
 mkdir \$MAGISKTMP/.magisk/block
 touch \$MAGISKTMP/.magisk/config
-
 restorecon -R /data/adb/magisk
 
+# additional script for Android-x86
 $ADDITIONAL_SCRIPT
 
+# if magisk does not exist
 [ ! -f \"\$MAGISKTMP/magisk\" ] && exit_magisk
 
+# revert all changes because all patch files have been loaded by init
 revert_changes
 
 "
