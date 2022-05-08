@@ -50,7 +50,8 @@ mkdir -p $inittmp/policy_loaded
 
 checkrootfs="$(mountpoint -d /android)"
 
-MAGISKDIR=/android/magisk
+MAGISKDIR=/magisk
+INITRC=/android/init.rc
 
 if [ "${checkrootfs%:*}" == "0" ] && mountpoint -q "/android"; then
 echo_log "Android root directory is rootfs"
@@ -62,6 +63,7 @@ sed -i "s|MAGISK_FILES_BASE|/magisk|g" /magisk/magisk.rc
 cp -a /magisk/* /android/magisk && debug_log "initrd-magisk: copy /magisk -> /android/magisk"
 [ ! -f "/magisk/init.rc" ] && cat /android/init.rc >/magisk/init.rc
 [ -f "/magisk/init.rc" ] && cat /magisk/init.rc >/android/init.rc
+. /magisk/overlay.d.sh
 cat /magisk/magisk.rc >>/android/init.rc && debug_log "initrd-magisk: inject magisk services into init.rc"
 revert_changes(){
  debug_log "initrd-magisk: revert patches"
@@ -72,6 +74,7 @@ revert_changes(){
 }
 elif mountpoint -q "/android"; then
 echo_log "Android root directory is system-as-root"
+MAGISKDIR=/system/etc/init/magisk
 sysblock="$(mount | grep " /android " | tail -1 | awk '{ print $1 }')"
 mkdir /android/dev/system_root
 mount $sysblock /android/dev/system_root || mount -o ro $sysblock /android/dev/system_root
@@ -89,8 +92,9 @@ chown 0.2000 $inittmp/.overlay/upper
 sed -i "s|MAGISK_FILES_BASE|/system/etc/init/magisk|g" /magisk/overlay.sh
 sed -i "s|MAGISK_FILES_BASE|/system/etc/init/magisk|g" /magisk/magisk.rc
 cp -a /magisk $inittmp/.overlay/upper && debug_log "initrd-magisk: copy /magisk -> $inittmp/.overlay/upper/magisk"
-cp /magisk/magisk.rc $inittmp/.overlay/upper/magisk.rc  && debug_log "initrd-magisk: inject magisk services into init.rc"
-MAGISKDIR=/android/system/etc/init/magisk
+INITRC=$inittmp/.overlay/upper/magisk.rc
+. /magisk/overlay.d.sh
+cat /magisk/magisk.rc >>$inittmp/.overlay/upper/magisk.rc  && debug_log "initrd-magisk: inject magisk services into init.rc"
 
 # fail back to magic mount if overlayfs is unavailable
 
@@ -142,9 +146,8 @@ fi
 
 
 if mountpoint -q "/android"; then
+
 # pre-init sepolicy patch
-
-
 mkdir -p /data
 mount_data_part /data
 [ ! -f "/magisk/magiskpolicy" ] && ln -sf ./magiskinit /magisk/magiskpolicy
@@ -193,7 +196,7 @@ fi
 umount -l $inittmp
 
 #test magisk
-
+MAGISKDIR="/android/$MAGISKDIR"
 ln -fs "./$magisk_name" "$MAGISKDIR/magisk"
 "$MAGISKDIR/magisk" --daemon
 if [ -z "$("$MAGISKDIR/magisk" -v)" ]; then

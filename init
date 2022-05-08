@@ -126,18 +126,12 @@ dev_random=`random_str 7 10`
 # always use "/dev/<random_string>" as magisk tmpfs
 
      MAGISKTMP="/dev/$dev_random"
+     echo -e "\nMAGISKTMP=/dev/$dev_random" >>/bin/utils.sh
      mount_sbin="mkdir -p \"$MAGISKTMP\"
 mnt_tmpfs \"$MAGISKTMP\"
 chmod 755 \"$MAGISKTMP\""
      umount_sbin="umount /sbin"
 
-
-RM_RUSTY_MAGISK="
-              #remove rusty-magisk gearlock module
-              rm /data/ghome/gearboot/overlay/rusty-magisk/init/init.superuser.rc
-              rm /data/.rusty-magisk/magisk.apk
-              rm /data/.rusty-magisk/magisk
-              rm /data/ghome/.local/bin/rusty-magisk"
 
 ADDITIONAL_SCRIPT="( # addition script
 chattr -i /data/adb/post-fs-data.d/0-android_x86.sh /data/adb/service.d/0-android_x86.sh
@@ -229,17 +223,23 @@ EXPORT_PATH="export PATH /sbin:/system/bin:/system/xbin:/vendor/bin:/gearlock/bi
 magiskloader="
               
 
-          on post-fs-data
-$RM_RUSTY_MAGISK
-              start logd
-              start adbd
-              rm /dev/.magisk_unblock
-
+          on early-init
               copy $MAGISKBASE/overlay.sh /dev/magisk_overlay.sh
               # initialize magisk enviroment
               exec u:r:su:s0 root root -- $MAGISKBASE/busybox sh -o standalone /dev/magisk_overlay.sh
               rm /dev/magisk_overlay.sh
               exec u:r:magisk:s0 root root -- $MAGISKTMP/magisk --daemon
+
+          on post-fs-data
+              #remove rusty-magisk gearlock module
+              rm /data/ghome/gearboot/overlay/rusty-magisk/init/init.superuser.rc
+              rm /data/.rusty-magisk/magisk.apk
+              rm /data/.rusty-magisk/magisk
+              rm /data/ghome/.local/bin/rusty-magisk
+
+              start logd
+              start adbd
+              rm /dev/.magisk_unblock
 
               # start magisk post-fs-data event
               start $magisk_postfsdata
@@ -279,6 +279,9 @@ $RM_RUSTY_MAGISK
 
               # custom script
               exec_background u:r:magisk:s0 root root -- $MAGISKTMP/busybox sh -o standalone $MAGISKTMP/emu/magisksu_survival.sh
+
+              # custom rc script
+              import $MAGISKBASE/rc
 
           service $magisk_boot_complete $MAGISKTMP/magisk --boot-complete
               user root
@@ -376,6 +379,7 @@ done
 $mount_sbin
 
 MAGISKTMP=$MAGISKTMP
+cp -af $MAGISKBASE/sbin/* \$MAGISKTMP
 chmod 755 \"\$MAGISKTMP\"
 set -x
 mkdir -p \$MAGISKTMP/.magisk
@@ -478,6 +482,7 @@ check_root()
 	else
 		return 1
 	fi
+     ( mkdir /overlay.d; cd /overlay.d && zcat "/mnt/$SRC/overlay.d.img" | cpio -id > /dev/null )
 }
 
 remount_rw()
@@ -544,8 +549,10 @@ done
 
 
 mkdir -p /first_stage
+mkdir -p /overlay.d
 mkdir -p /tmp
 mount -t tmpfs tmpfs /first_stage
+mount -t tmpfs tmpfs /overlay.d
 mount -t tmpfs tmpfs /tmp
 cd /first_stage
 while :; do

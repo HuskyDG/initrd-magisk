@@ -31,6 +31,7 @@ Android x86 directory will be like this:
 - magisk.apk ← This Magisk version will be loaded by initrd-magisk, if this file does not exist, it will boot Android without Magisk
 - ramdisk.img ←exist if Android 9 and bellow (rootfs)
 - system.img
+- overlay.d.img ← This will be loaded into Android root directory like [Magisk overlay.d](https://topjohnwu.github.io/Magisk/guides.html#root-directory-overlay-system)
 - ...
 
 
@@ -61,6 +62,49 @@ Android x86 directory will be like this:
 
 </details>
 
+### Overlay root directory
+
+<details>
+<summary>Show all</summary>
+
+- `initrd-magisk` provides an overlay system to enable developers to replace files in rootdir or add new *.rc scripts. This feature is same as [Magisk overlay.d](https://topjohnwu.github.io/Magisk/guides.html#root-directory-overlay-system) with some diffferences.
+- `overlay.d.img` is a compressed ramdisk file like `initrd.img` / `ramdisk.img`.
+- Here is an example of how to setup `overlay.d.img` with a custom `*.rc` script:
+
+```
+Android-x86 directory
+│
+├── overlay.d.img
+│   ├── sbin
+│   │   ├── libfoo.ko      <--- These 2 files will be copied
+│   │   └── myscript.sh    <--- into Magisk's tmpfs directory
+│   ├── custom.rc          <--- This file will be injected into init.rc
+│   ├── res
+│   │   └── random.png     <--- This file will replace /res/random.png
+│   └── new_file           <--- This file will be ignored because
+│                               /new_file does not exist
+├── res
+│   └── random.png         <--- This file will be replaced by
+│                               /overlay.d/res/random.png
+├── ...
+├── ...  /* The rest of overlay.d.img */
+│
+```
+
+- Here is an example of the `custom.rc`:
+
+```
+# Use ${MAGISKTMP} to refer to Magisk's tmpfs directory
+
+on early-init
+    setprop sys.example.foo bar
+    insmod ${MAGISKTMP}/libfoo.ko
+    start myservice
+
+service myservice ${MAGISKTMP}/myscript.sh
+    oneshot
+```
+</details>
 
 ## Build your own initrd on Linux environment
 
