@@ -62,7 +62,7 @@ Android x86 directory will be like this:
 
 </details>
 
-### Overlay root directory
+## Overlay root directory
 
 <details>
 <summary>Show all</summary>
