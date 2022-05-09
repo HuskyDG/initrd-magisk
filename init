@@ -165,7 +165,10 @@ fi
             mountpoint -q \\\"\$MAGISKTMP/.magisk/mirror/\\\$BLOCKNAME\\\" || mount -o ro \\\"\$MAGISKTMP/.magisk/block/\\\$BLOCKNAME\\\" \\\"\$MAGISKTMP/.magisk/mirror/\\\$BLOCKNAME\\\"
             mount -o ro,remount \\\"\$MAGISKTMP/.magisk/mirror/\\\$BLOCKNAME\\\"
         fi
-done ) &
+done
+# remove empty directory
+rmdir \$MAGISKTMP/.magisk/mirror/* 
+) &
 
 # install magisk app
 MAGISK_STUB=\\\$(strings /data/adb/magisk.db | grep -oE 'requester..*' | cut -c10-)
