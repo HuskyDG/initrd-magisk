@@ -231,7 +231,7 @@ mkdir -p /first_stage
 mkdir -p /overlay.d
 mkdir -p /tmp
 mount -t tmpfs tmpfs /first_stage
-mount -t tmpfs tmpfs /overlay.d
+mount -t tmpfs ".magisk/block" /overlay.d
 mount -t tmpfs tmpfs /tmp
 cd /first_stage
 while :; do
