@@ -55,8 +55,8 @@ for item in `ls $OVERLAYDIR`; do
             # ignore
             ;;
          "sbin")
-            mkdir "/android/$MAGISKDIR/sbin"
-            cp -af "$OVERLAYDIR/sbin/"* "/android/$MAGISKDIR/sbin"
+            mkdir -p "$MAGISKDIR/sbin"
+            cp -af "$OVERLAYDIR/sbin/"* "$MAGISKDIR/sbin"
             ;;
         *)
             # replace existing files in root directory

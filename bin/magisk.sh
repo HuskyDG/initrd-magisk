@@ -6,14 +6,20 @@ set -
 # get source name of android x86
 get_src
 
+lazy_umount(){
+    umount -l "$1" && debug_log "initrd-magisk unmount: $1"
+}
 
+bind_debug(){
+    mount --bind "$1" "$2" && debug_log "mnt_bind: $2 <- $1"
+}
 
 bind_policy(){
 policy="$1"
 umount -l "$1"
 /magisk/magiskpolicy --load "$policy" --save "$inittmp/.overlay/policy" --magisk "allow * magisk_file lnk_file *" 2>>/tmp/magiskpolicy.txt && debug_log "magiskpolicy: inject magisk built-in rules"
 /magisk/magiskpolicy --load "$inittmp/.overlay/policy" --save "$inittmp/.overlay/policy" --apply "$module_policy" 2>>/tmp/magiskpolicy.txt && debug_log "magiskpolicy: inject magisk modules sepolicy.rule"
-mount --bind $inittmp/.overlay/policy "$policy" && debug_log "mnt_bind: $policy <- $inittmp/.overlay/policy"
+bind_debug $inittmp/.overlay/policy "$policy"
 }
 
 load_policy(){
@@ -48,19 +54,21 @@ fi
 }
 
 check_magisk_and_load(){
-#test magisk
+#test magisk before inject into system
 MAGISKDIR="/android/$MAGISKDIR"
 ln -fs "./$magisk_name" "$MAGISKDIR/magisk"
 "$MAGISKDIR/magisk" --daemon
 if [ ! -z "$("$MAGISKDIR/magisk" -v)" ]; then
   echo_log "Magisk version: $("$MAGISKDIR/magisk" -v) ($("$MAGISKDIR/magisk" -V))"
-  # load overlay.d
+  # load overlay.d from boot image
   . /magisk/overlay.d.sh
-  # inject magisk.rc
+  # inject magisk.rc into system
   cat /magisk/magisk.rc >>"$INITRC"  && debug_log "initrd-magisk: inject magisk services into init.rc"
-  # pre-init sepolicy patch
+  # pre-init sepolicy patch for magisk and modules
   load_policy
 else
+   # since magisk is not available, we shoud unmount it
+   debug_log "initrd-magisk: magisk is not available"
    cat /magisk/unmount.rc >>"$INITRC"
 fi
 "$MAGISKDIR/magisk" --stop
@@ -75,10 +83,6 @@ fi
 
 ( # BEGIN : inject magisk
 
-lazy_umount(){
-    umount -l "$1" && debug_log "initrd-magisk unmount: $1"
-}
-
 unset ABI
 
 detect_sdk_abi
@@ -90,17 +94,15 @@ exit 1
 
 echo_log "Architecture: $ABI - 64bit: $IS64BIT"
 
+# load magisk from magisk.apk
 magisk_name="magisk32"
-
 if [ "$IS64BIT" == "true" ]; then
 cp -af "$TMPDIR/magisk32/lib/$ABI32/"* "$MAGISKCORE"
 magisk_name="magisk64"
 fi
-
 cp -af "$TMPDIR/magisk/lib/$ABI/"* "$MAGISKCORE"
-
 for file in magisk32 magisk64 magiskinit magiskpolicy busybox magiskboot; do
-    if [ -f "$MAGISKCORE/lib${file}.so" ]; then 
+    if [ ! -f "$MAGISKCORE/${file}" ]; then 
         rm -rf "$MAGISKCORE/${file}"
         cp -f "$MAGISKCORE/lib${file}.so" "$MAGISKCORE/${file}"
     fi
@@ -114,23 +116,29 @@ mkdir -p $inittmp/.overlay/upper
 mkdir -p $inittmp/.overlay/work
 mkdir -p $inittmp/policy_loaded
 mkdir -p $inittmp/boot-magisk
-mount -t tmpfs ".magisk/block" "$inittmp/boot-magisk"
 mkdir /data_mirror
 mount_data_part /data_mirror
 datablock="$(cat /proc/mounts | grep " /data_mirror " | tail -1 | awk '{ print $1 }')"
 datablock="/dev/block/$(basename "$datablock")"
-OVERLAYDIR=/android/dev/boot-magisk/overlay.d
+OVERLAYDIR="/android/dev/boot-magisk/overlay.d"
 
-debug_log "initrd-magisk: parse boot.img"
+# load magisk from boot image (boot-magisk.img)
+# if boot image contains magisk, it will be used instead of magisk.apk
+
+debug_log "initrd-magisk: parse boot image"
 ( cd "$inittmp" && /magisk/magiskboot unpack "/mnt/$SOURCE_OS/boot-magisk.img"
 cd "$inittmp/boot-magisk" && cat "$inittmp/ramdisk.cpio" | cpio -iud
+cp -f "$inittmp/boot-magisk/init" "$MAGISKCORE/magiskinit"
+FOUND_MAGISK=0
 for item in magisk32 magisk64; do
     if [ -f "$OVERLAYDIR/sbin/$item.xz" ]; then
+         FOUND_MAGISK=1
          xz -d "$OVERLAYDIR/sbin/$item.xz"
-         mv "$OVERLAYDIR/sbin/$item" "$MAGISKCORE/$item"
+         mv "$OVERLAYDIR/sbin/$item" "$MAGISKCORE/$item" && debug_log "initrd-magisk: add ${item}"
          chmod 777 "$MAGISKCORE/$item"
     fi
 done
+test "$FOUND_MAGISK" == 0 && debug_log "initrd-magisk: boot image does not contain magisk" || debug_log "initrd-magisk: loaded magisk from boot image"
  )
 
 bootrc(){
@@ -138,9 +146,9 @@ sed -i "s|\${{SYSTEMIMAGE}}|$sysblock|g" "/magisk/boot.rc"
 sed -i "s|\${{DATAIMAGE}}|$datablock|g" "/magisk/boot.rc"
 sed -i "s|\${{BOOTIMAGE}}|$BOOTIMAGE|g" "/magisk/boot.rc"
 mkdir -p /dev/block/by-name
-ln -s "/dev/$(basename "$sysblock")" /dev/block/by-name/system
-ln -s "/dev/$(basename "$datablock")" /dev/block/by-name/data
-ln -s "/dev/$(basename "$BOOTIMAGE")" /dev/block/by-name/boot
+ln "/dev/$(basename "$sysblock")" /dev/block/by-name/system
+ln "/dev/$(basename "$datablock")" /dev/block/by-name/data
+ln "/dev/$(basename "$BOOTIMAGE")" /dev/block/by-name/boot
 }
 
 
@@ -154,20 +162,20 @@ echo_log "Android root directory is rootfs"
 # rootfs, patch ramdisk
 sysblock="$(cat /proc/mounts | grep " /android/system " | tail -1 | awk '{ print $1 }')"
 sysblock="/dev/block/$(basename "$sysblock")"
+bootrc
 mount -o rw,remount /android && debug_log "initrd-magisk: remounted /android as read-write"
 mkdir /android/magisk
 sed -i "s|MAGISK_FILES_BASE|/magisk|g" /magisk/overlay.sh
 sed -i "s|MAGISK_FILES_BASE|/magisk|g" /magisk/magisk.rc
 cp -a /magisk/* /android/magisk && debug_log "initrd-magisk: copy /magisk -> /android/magisk"
 cp -a /android/init.rc "$INITRC"
-mount --bind "$INITRC" /android/init.rc
-bootrc
+bind_debug "$INITRC" /android/init.rc
 cat "/magisk/boot.rc" >>"$INITRC"
 check_magisk_and_load
 revert_changes(){
  debug_log "initrd-magisk: revert patches"
  rm -rf /android/magisk 
-lazy_umount /android/init.rc
+ lazy_umount /android/init.rc
  lazy_umount /android/sepolicy
  lazy_umount /android/system/vendor/etc/selinux/precompiled_sepolicy
 }
@@ -176,6 +184,7 @@ echo_log "Android root directory is system-as-root"
 MAGISKDIR=/system/etc/init/magisk
 sysblock="$(cat /proc/mounts | grep " /android " | tail -1 | awk '{ print $1 }')"
 sysblock="/dev/block/$(basename "$sysblock")"
+bootrc
 mkdir /android/dev/system_root
 mount $sysblock /android/dev/system_root || mount -o ro $sysblock /android/dev/system_root
 # prepare for second stage
@@ -192,7 +201,6 @@ chown 0.2000 $inittmp/.overlay/upper
 sed -i "s|MAGISK_FILES_BASE|/system/etc/init/magisk|g" /magisk/overlay.sh
 sed -i "s|MAGISK_FILES_BASE|/system/etc/init/magisk|g" /magisk/magisk.rc
 cp -a /magisk $inittmp/.overlay/upper && debug_log "initrd-magisk: copy /magisk -> $inittmp/.overlay/upper/magisk"
-bootrc
 cat "/magisk/boot.rc" >>"$INITRC"
 check_magisk_and_load
 
@@ -214,10 +222,10 @@ chown 0.2000 /android/system/etc/init
             cp "$sfile" "$xfile" && debug_log "cp_link: $xfile <- $sfile"
         elif [ -d "$sfile" ]; then
             mkdir "$xfile"
-            mount --bind "$sfile" "$xfile" && debug_log "mnt_bind: $xfile <- $sfile"
+            bind_debug "$sfile" "$xfile"
         else
             echo -n >"$xfile"
-            mount --bind "$sfile" "$xfile" && debug_log "mnt_bind: $xfile <- $sfile"
+            bind_debug "$sfile" "$xfile"
         fi
      ) &
   done
@@ -227,9 +235,9 @@ chown 0.2000 /android/system/etc/init
   rm -rf /android/system/etc/init/magisk
   rm -rf /android/system/etc/init/magisk.rc
   mkdir /android/system/etc/init/magisk
-  mount --bind $inittmp/.overlay/upper/magisk /android/system/etc/init/magisk && debug_log "mnt_bind: /android/system/etc/init/magisk <- $inittmp/.overlay/upper/magisk"
+  bind_debug $inittmp/.overlay/upper/magisk /android/system/etc/init/magisk
   echo -n >/android/system/etc/init/magisk.rc
-  mount --bind $inittmp/.overlay/upper/magisk.rc /android/system/etc/init/magisk.rc && debug_log "mnt_bind: /android/system/etc/init/magisk.rc <- $inittmp/.overlay/upper/magisk.rc"
+  bind_debug $inittmp/.overlay/upper/magisk.rc /android/system/etc/init/magisk.rc
 fi
 
 
