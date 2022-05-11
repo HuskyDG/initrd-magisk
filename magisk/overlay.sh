@@ -27,6 +27,7 @@ awk -F"${1}=" '{print $2}' < /proc/cmdline | cut -d' ' -f1 2> /dev/null
 revert_changes(){
      #remount system read-only to fix Magisk fail to mount mirror
      if mount -t rootfs | grep -q " / " || mount -t tmpfs | grep -q " / "; then
+        mount -o rw,remount /
         rm -rf /magisk
      fi
      mount -o ro,remount /
@@ -131,8 +132,6 @@ cp -af ./magiskboot $MAGISKBIN/magiskboot
 cp -af ./magisk.apk $MAGISKTMP/magisk.apk
 ln $MAGISKTMP/magisk.apk $MAGISKTMP/stub.apk
 
-# copy some magisk internal stuff
-cp -af ./assets/* $MAGISKBIN
 
 # create symlink to magisk
 ln -s ./$magisk_name $MAGISKTMP/magisk 2>/dev/null

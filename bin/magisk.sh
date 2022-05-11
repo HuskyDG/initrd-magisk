@@ -3,17 +3,81 @@
 . /bin/info.sh
 set -
 
+# get source name of android x86
+get_src
+
+
+
+bind_policy(){
+policy="$1"
+umount -l "$1"
+/magisk/magiskpolicy --load "$policy" --save "$inittmp/.overlay/policy" --magisk "allow * magisk_file lnk_file *" 2>>/tmp/magiskpolicy.txt && debug_log "magiskpolicy: inject magisk built-in rules"
+/magisk/magiskpolicy --load "$inittmp/.overlay/policy" --save "$inittmp/.overlay/policy" --apply "$module_policy" 2>>/tmp/magiskpolicy.txt && debug_log "magiskpolicy: inject magisk modules sepolicy.rule"
+mount --bind $inittmp/.overlay/policy "$policy" && debug_log "mnt_bind: $policy <- $inittmp/.overlay/policy"
+}
+
+load_policy(){
+
+[ ! -f "/magisk/magiskpolicy" ] && ln -sf ./magiskinit /magisk/magiskpolicy
+
+module_policy="$inittmp/.overlay/sepolicy.rules"
+rm -rf "$module_policy"
+echo "allow su * * *">"$module_policy"
+
+# /data on Android-x86 is not always encrypted
+for policy_dir in /data_mirror/adb/modules_update  /data_mirror/adb/modules /data_mirror/unencrypted/magisk; do
+         for module in $(ls $policy_dir); do
+              if ! [ -f "$policy_dir/$module/disable" ] && [ -f "$policy_dir/$module/sepolicy.rule" ] && [ ! -f "$inittmp/policy_loaded/$module" ]; then
+                  cat  "$policy_dir/$module/sepolicy.rule" >>"$module_policy" &&  debug_log "initrd-magisk: read sepolicy.rule from $policy_dir/$module/sepolicy.rule"
+                  echo "" >>"$module_policy"
+                  echo -n > "$inittmp/policy_loaded/$module"
+              fi
+          done
+done
+
+
+umount -l /data_mirror
+
+# bind mount modified sepolicy
+ln -s /android/vendor /
+if [ -f /android/system/vendor/etc/selinux/precompiled_sepolicy ]; then
+  bind_policy /android/system/vendor/etc/selinux/precompiled_sepolicy
+elif [ -f /android/sepolicy ]; then
+  bind_policy /android/sepolicy
+fi
+}
+
+check_magisk_and_load(){
+#test magisk
+MAGISKDIR="/android/$MAGISKDIR"
+ln -fs "./$magisk_name" "$MAGISKDIR/magisk"
+"$MAGISKDIR/magisk" --daemon
+if [ ! -z "$("$MAGISKDIR/magisk" -v)" ]; then
+  echo_log "Magisk version: $("$MAGISKDIR/magisk" -v) ($("$MAGISKDIR/magisk" -V))"
+  # load overlay.d
+  . /magisk/overlay.d.sh
+  # inject magisk.rc
+  cat /magisk/magisk.rc >>"$INITRC"  && debug_log "initrd-magisk: inject magisk services into init.rc"
+  # pre-init sepolicy patch
+  load_policy
+else
+   cat /magisk/unmount.rc >>"$INITRC"
+fi
+"$MAGISKDIR/magisk" --stop
+killall -9 magiskd
+}
+
+
+if [ -f "/mnt/$SOURCE_OS/boot-magisk.img" ]; then
+     loop_setup  "/mnt/$SOURCE_OS/boot-magisk.img"
+     BOOTIMAGE="$LOOPDEV"
+fi
+
 ( # BEGIN : inject magisk
 
 lazy_umount(){
     umount -l "$1" && debug_log "initrd-magisk unmount: $1"
 }
-
-if [ ! -z "$DEBUG" ]; then
-    SELOGFILE=/tmp/magiskpolicy.txt
-else
-    SELOGFILE=/dev/null
-fi
 
 unset ABI
 
@@ -36,8 +100,10 @@ fi
 cp -af "$TMPDIR/magisk/lib/$ABI/"* "$MAGISKCORE"
 
 for file in magisk32 magisk64 magiskinit magiskpolicy busybox magiskboot; do
-rm -rf "$MAGISKCORE/${file}"
-cp "$MAGISKCORE/lib${file}.so" "$MAGISKCORE/${file}"
+    if [ -f "$MAGISKCORE/lib${file}.so" ]; then 
+        rm -rf "$MAGISKCORE/${file}"
+        cp -f "$MAGISKCORE/lib${file}.so" "$MAGISKCORE/${file}"
+    fi
 done
 
 
@@ -47,35 +113,69 @@ mount -t tmpfs tmpfs $inittmp
 mkdir -p $inittmp/.overlay/upper
 mkdir -p $inittmp/.overlay/work
 mkdir -p $inittmp/policy_loaded
+mkdir -p $inittmp/boot-magisk
+mount -t tmpfs ".magisk/block" "$inittmp/boot-magisk"
+mkdir /data_mirror
+mount_data_part /data_mirror
+datablock="$(cat /proc/mounts | grep " /data_mirror " | tail -1 | awk '{ print $1 }')"
+datablock="/dev/block/$(basename "$datablock")"
+OVERLAYDIR=/android/dev/boot-magisk/overlay.d
+
+debug_log "initrd-magisk: parse boot.img"
+( cd "$inittmp" && /magisk/magiskboot unpack "/mnt/$SOURCE_OS/boot-magisk.img"
+cd "$inittmp/boot-magisk" && cat "$inittmp/ramdisk.cpio" | cpio -iud
+for item in magisk32 magisk64; do
+    if [ -f "$OVERLAYDIR/sbin/$item.xz" ]; then
+         xz -d "$OVERLAYDIR/sbin/$item.xz"
+         mv "$OVERLAYDIR/sbin/$item" "$MAGISKCORE/$item"
+         chmod 777 "$MAGISKCORE/$item"
+    fi
+done
+ )
+
+bootrc(){
+sed -i "s|\${{SYSTEMIMAGE}}|$sysblock|g" "/magisk/boot.rc"
+sed -i "s|\${{DATAIMAGE}}|$datablock|g" "/magisk/boot.rc"
+sed -i "s|\${{BOOTIMAGE}}|$BOOTIMAGE|g" "/magisk/boot.rc"
+mkdir -p /dev/block/by-name
+ln -s "/dev/$(basename "$sysblock")" /dev/block/by-name/system
+ln -s "/dev/$(basename "$datablock")" /dev/block/by-name/data
+ln -s "/dev/$(basename "$BOOTIMAGE")" /dev/block/by-name/boot
+}
+
 
 checkrootfs="$(mountpoint -d /android)"
 
 MAGISKDIR=/magisk
-INITRC=/android/init.rc
+INITRC="$inittmp/.overlay/upper/magisk.rc"
 
 if [ "${checkrootfs%:*}" == "0" ] && mountpoint -q "/android"; then
 echo_log "Android root directory is rootfs"
 # rootfs, patch ramdisk
+sysblock="$(cat /proc/mounts | grep " /android/system " | tail -1 | awk '{ print $1 }')"
+sysblock="/dev/block/$(basename "$sysblock")"
 mount -o rw,remount /android && debug_log "initrd-magisk: remounted /android as read-write"
 mkdir /android/magisk
 sed -i "s|MAGISK_FILES_BASE|/magisk|g" /magisk/overlay.sh
 sed -i "s|MAGISK_FILES_BASE|/magisk|g" /magisk/magisk.rc
 cp -a /magisk/* /android/magisk && debug_log "initrd-magisk: copy /magisk -> /android/magisk"
-[ ! -f "/magisk/init.rc" ] && cat /android/init.rc >/magisk/init.rc
-[ -f "/magisk/init.rc" ] && cat /magisk/init.rc >/android/init.rc
-. /magisk/overlay.d.sh
-cat /magisk/magisk.rc >>/android/init.rc && debug_log "initrd-magisk: inject magisk services into init.rc"
+cp -a /android/init.rc "$INITRC"
+mount --bind "$INITRC" /android/init.rc
+bootrc
+cat "/magisk/boot.rc" >>"$INITRC"
+check_magisk_and_load
 revert_changes(){
  debug_log "initrd-magisk: revert patches"
- cat /magisk/init.rc >/android/init.rc && debug_log "initrd-magisk restore: /android/init.rc"
  rm -rf /android/magisk 
+lazy_umount /android/init.rc
  lazy_umount /android/sepolicy
  lazy_umount /android/system/vendor/etc/selinux/precompiled_sepolicy
 }
 elif mountpoint -q "/android"; then
 echo_log "Android root directory is system-as-root"
 MAGISKDIR=/system/etc/init/magisk
-sysblock="$(mount | grep " /android " | tail -1 | awk '{ print $1 }')"
+sysblock="$(cat /proc/mounts | grep " /android " | tail -1 | awk '{ print $1 }')"
+sysblock="/dev/block/$(basename "$sysblock")"
 mkdir /android/dev/system_root
 mount $sysblock /android/dev/system_root || mount -o ro $sysblock /android/dev/system_root
 # prepare for second stage
@@ -92,9 +192,9 @@ chown 0.2000 $inittmp/.overlay/upper
 sed -i "s|MAGISK_FILES_BASE|/system/etc/init/magisk|g" /magisk/overlay.sh
 sed -i "s|MAGISK_FILES_BASE|/system/etc/init/magisk|g" /magisk/magisk.rc
 cp -a /magisk $inittmp/.overlay/upper && debug_log "initrd-magisk: copy /magisk -> $inittmp/.overlay/upper/magisk"
-INITRC=$inittmp/.overlay/upper/magisk.rc
-. /magisk/overlay.d.sh
-cat /magisk/magisk.rc >>$inittmp/.overlay/upper/magisk.rc  && debug_log "initrd-magisk: inject magisk services into init.rc"
+bootrc
+cat "/magisk/boot.rc" >>"$INITRC"
+check_magisk_and_load
 
 # fail back to magic mount if overlayfs is unavailable
 
@@ -145,85 +245,18 @@ else
 fi
 
 
-if mountpoint -q "/android"; then
-
-# pre-init sepolicy patch
-mkdir -p /data
-mount_data_part /data
-[ ! -f "/magisk/magiskpolicy" ] && ln -sf ./magiskinit /magisk/magiskpolicy
-
-module_policy="$inittmp/.overlay/sepolicy.rules"
-rm -rf "$module_policy"
-echo "allow su * * *">"$module_policy"
-
-# /data on Android-x86 is not always encrypted
-for policy_dir in /data/adb/modules_update  /data/adb/modules /data/unencrypted/magisk; do
-         for module in $(ls $policy_dir); do
-              if ! [ -f "$policy_dir/$module/disable" ] && [ -f "$policy_dir/$module/sepolicy.rule" ] && [ ! -f "$inittmp/policy_loaded/$module" ]; then
-                  cat  "$policy_dir/$module/sepolicy.rule" >>"$module_policy" &&  debug_log "initrd-magisk: read sepolicy.rule from $policy_dir/$module/sepolicy.rule"
-                  echo "" >>"$module_policy"
-                  echo -n > "$inittmp/policy_loaded/$module"
-              fi
-          done
-done
-
-bind_policy(){
-policy="$1"
-umount -l "$1"
-(
-/magisk/magiskpolicy --load "$policy" --save "$inittmp/.overlay/policy" --magisk "allow * magisk_file lnk_file *" 2>>/tmp/magiskpolicy.txt && debug_log "magiskpolicy: inject magisk built-in rules"
-/magisk/magiskpolicy --load "$inittmp/.overlay/policy" --save "$inittmp/.overlay/policy" --apply "$module_policy" 2>>/tmp/magiskpolicy.txt && debug_log "magiskpolicy: inject magisk modules sepolicy.rule"
-) 2>>$SELOGFILE
-mount --bind $inittmp/.overlay/policy "$policy" && debug_log "mnt_bind: $policy <- $inittmp/.overlay/policy"
-}
-
-umount -l /data
-
-# bind mount modified sepolicy
-
-rm -rf /tmp/magiskpolicy.txt
-[ ! -z "$DEBUG" ] && {
-    cp -af "$module_policy" /tmp/magiskpolicy.txt
-    echo "
----------------------------------">>/tmp/magiskpolicy.txt
-    }
-
-if [ -f /android/system/vendor/etc/selinux/precompiled_sepolicy ]; then
-  bind_policy /android/system/vendor/etc/selinux/precompiled_sepolicy
-elif [ -f /android/sepolicy ]; then
-  bind_policy /android/sepolicy
-fi
-umount -l $inittmp
-
-#test magisk
-MAGISKDIR="/android/$MAGISKDIR"
-ln -fs "./$magisk_name" "$MAGISKDIR/magisk"
-"$MAGISKDIR/magisk" --daemon
-if [ -z "$("$MAGISKDIR/magisk" -v)" ]; then
-  echo_log "WARING: Failed to inject Magisk into system"
-  revert_changes
-else
-  echo_log "Magisk version: $("$MAGISKDIR/magisk" -v) ($("$MAGISKDIR/magisk" -V))"
-fi
-"$MAGISKDIR/magisk" --stop
-killall -9 magiskd
-
-sleep 0.2
-fi
+umount -l "$inittmp"
 
 ) 2>>/tmp/initrd-magisk.log # END: inject magisk
 
 ( # after
-get_src
 gzip -f /tmp/initrd-magisk.log
-gzip -f /tmp/magiskpolicy.txt
 cp /tmp/log /tmp/ex_log
 gzip -f /tmp/ex_log
 if [ ! -z "$SOURCE_OS" ]; then
     mkdir "/mnt/$SOURCE_OS/logcat"
     [ -d "/mnt/$SOURCE_OS/logcat" ] && {
         cp /tmp/initrd-magisk.log.gz "/mnt/$SOURCE_OS/logcat/initrd-magisk.txt.gz"
-        cp /tmp/magiskpolicy.txt.gz "/mnt/$SOURCE_OS/logcat/magiskpolicy.txt.gz"
         cp /tmp/ex_log.gz "/mnt/$SOURCE_OS/logcat/debug_log.txt.gz"
     }
 fi

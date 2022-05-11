@@ -1,7 +1,4 @@
-mkdir /android/dev/overlay.d
-mount --bind /overlay.d /android/dev/overlay.d
-umount -l /overlay.d
-OVERLAYDIR=/android/dev/overlay.d
+
 
 replace(){
 local TARGET="$1"

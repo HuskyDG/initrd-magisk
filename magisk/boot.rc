@@ -1,0 +1,8 @@
+on post-fs-data
+
+# implement boot image
+    mkdir /dev/block/by-name
+    symlink ${{BOOTIMAGE}} /dev/block/by-name/boot
+    symlink ${{SYSTEMIMAGE}} /dev/block/by-name/system
+    symlink ${{DATAIMAGE}} /dev/block/by-name/data
+

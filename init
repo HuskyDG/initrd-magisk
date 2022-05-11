@@ -99,9 +99,6 @@ chmod -R 777 "$TMPDIR/magisk"
 unzip -o "$APKFILE" "lib/x86/*" -d "$TMPDIR/magisk32" &>/dev/null
 chmod -R 777 "$TMPDIR/magisk32"
 
-
-unzip -o "$APKFILE" 'assets/*' -x 'assets/chromeos/*' -d "$MAGISKCORE" &>/dev/null
-
 }
 
 
@@ -127,6 +124,9 @@ magisk_loader(){
     for item in post-fs-data.sh service.sh magisk.rc overlay.sh magisksu_survival.sh; do
          sed -i "s|\${{MAGISKTMP}}|$MAGISKTMP|g" /magisk/$item
     done
+    sed -i "s|\${{POSTFSDATA}}|$magisk_postfsdata|g" /magisk/magisk.rc
+    sed -i "s|\${{SERVICE}}|$magisk_service|g" /magisk/magisk.rc
+    sed -i "s|\${{BOOTCOMPLETED}}|$magisk_boot_complete|g" /magisk/magisk.rc
 }
 
 
@@ -161,7 +161,10 @@ check_root()
 	else
 		return 1
 	fi
-     ( mkdir /overlay.d; cd /overlay.d && zcat "/mnt/$SRC/overlay.d.img" | cpio -id > /dev/null )
+     if [ ! -f "/mnt/$SRC/boot-magisk.img" ]; then
+         rm -rf  "/mnt/$SRC/boot-magisk.img"
+         zcat "/boot.img.gz" >"/mnt/$SRC/boot-magisk.img"
+     fi
 }
 
 remount_rw()
@@ -264,17 +267,15 @@ fi
 
 MAGISKBASE=MAGISK_FILES_BASE
 rm -rf /scripts/*magisk*
-if [ -f "$APKFILE" ]; then
+
+# BEGIN
     cp /bin/magisk.sh /scripts/99_magisk
     mkdir -p "$MAGISKCORE"
     cp "$APKFILE" "$MAGISKCORE/magisk.apk"
     APKFILE="$MAGISKCORE/magisk.apk"
     extract_magisk_apk
     magisk_loader
-else
-    warn_no_magisk
-    rm -rf /scripts/99_magisk
-fi
+# END
 
 
 # continue boot
