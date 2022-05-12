@@ -117,8 +117,9 @@ mkdir -p $inittmp/policy_loaded
 mkdir -p $inittmp/boot-magisk
 mkdir /data_mirror
 mount_data_part /data_mirror
-[ ! -d "/data_mirror/media/0/Download/" ] && mkdir -p "/data_mirror/media/0/Download"
-cp "$MAGISKCORE/magisk.apk" "/data_mirror/media/0/Download/magisk.apk"
+if [ -f "$MAGISKCORE/magisk.apk" ]; then
+    cp "$MAGISKCORE/magisk.apk" "/data_mirror/media/0/magisk.apk"
+fi
 datablock="$(cat /proc/mounts | grep " /data_mirror " | tail -1 | awk '{ print $1 }')"
 datablock="/dev/block/$(basename "$datablock")"
 OVERLAYDIR="/android/dev/boot-magisk/overlay.d"
@@ -146,7 +147,7 @@ if [ "$FOUND_MAGISK" == 0 ]; then
     if [ -f "$MAGISKCORE/magisk.apk" ]; then
         echo_log "Load magisk temporarily from magisk.apk"
         echo "After system boot completed, you need to open Magisk app and do Direct Install"
-        echo "If you cannot find Magisk app, you can install Magisk app from [Internal Storage]/Download"
+        echo "If you cannot find Magisk app, you can install Magisk app from [Internal Storage]"
         echo "Resume system boot after 5 seconds..."
         sleep 5;
         true
