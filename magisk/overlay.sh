@@ -150,21 +150,7 @@ mkdir $MAGISKTMP/.magisk/block
 cat MAGISK_FILES_BASE/config >$MAGISKTMP/.magisk/config
 restorecon -R /data/adb/magisk
 
-# additional script for Android-x86
-
-chattr -i /data/adb/post-fs-data.d/0-android_x86.sh /data/adb/service.d/0-android_x86.sh
-rm -rf /data/adb/post-fs-data.d/0-android_x86.sh
-rm -rf /data/adb/service.d/0-android_x86.sh
-
-
 cat MAGISK_FILES_BASE/magisksu_survival.sh >$MAGISKTMP/emu/magisksu_survival.sh
-
-# workaround non-device data partition (data partition is a mount bind)
-
-cat MAGISK_FILES_BASE/post-fs-data.sh >/data/adb/post-fs-data.d/0-android_x86.sh
-cat MAGISK_FILES_BASE/service.sh >/data/adb/service.d/0-android_x86.sh
-chmod 755 /data/adb/service.d/0-android_x86.sh
-chmod 755 /data/adb/post-fs-data.d/0-android_x86.sh;
 
 OSROOT="$(cat MAGISK_FILES_BASE/osroot_dev)"
 if [ ! -z "$OSROOT" ]; then
@@ -179,9 +165,41 @@ if [ ! -z "$SRC" ]; then
     ln -s "./osroot/$SRC" "$MAGISKTMP/.magisk/mirror/android"
 fi
 
-
 # if magisk does not exist
 [ ! -f "$MAGISKTMP/magisk" ] && exit_magisk
+
+
+( #fix mount data mirror
+data_inode="$(ls -id "/data" | awk '{ print $1 }')"
+[ "$data_inode" == "1" ] && exit
+if [ "$data_inode" != "2" ] && [ "$data_inode" != "3" ]; then
+    CHECKBLOCK="$(mountpoint -d "/data")"
+    blk_major="${CHECKBLOCK%:*}"
+    blk_minor="${CHECKBLOCK: ${#blk_major}+1}"
+    mknod -m 660 "$MAGISKTMP/.magisk/block/data" b "$blk_major" "$blk_minor"
+    mkdir -p "$MAGISKTMP/.magisk/mirror/data"
+    mount "$MAGISKTMP/.magisk/block/data" "$MAGISKTMP/.magisk/mirror/data"
+    rm -rf "$MAGISKTMP/.magisk/block/data"
+    mknod -m 660 "$MAGISKTMP/.magisk/block/data" b 0 0
+    touch "$MAGISKTMP/.magisk/block/data"
+    chattr +i "$MAGISKTMP/.magisk/block/data"
+
+    DATA="$(cmdline DATA)"
+    test -z "$SRC" && SRC="${BIPATH%/*}"
+    test -z "$SRC" && exit
+    test -z "$DATA" && DATA=data
+
+    inode_data1=$(ls -id "$MAGISKTMP/.magisk/mirror/data/$SRC/$DATA" | awk '{ print $1 }')
+    inode_data2=$(ls -id "$MAGISKTMP/.magisk/mirror/data/$SRC/data" | awk '{ print $1 }')
+    inode_data=$(ls -id "/data" | awk '{ print $1 }')
+
+    if [ "$inode_data1" == "$inode_data" ]; then
+        mount --bind "$MAGISKTMP/.magisk/mirror/data/$SRC/$DATA" "$MAGISKTMP/.magisk/mirror/data"
+    elif [ "$inode_data2" == "$inode_data" ]; then
+        mount --bind "$MAGISKTMP/.magisk/mirror/data/$SRC/data" "$MAGISKTMP/.magisk/mirror/data"
+    fi
+fi )
+
 
 # revert all changes because all patch files have been loaded by init
 revert_changes
