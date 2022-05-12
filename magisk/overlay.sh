@@ -129,7 +129,7 @@ done
 
 # copy magiskboot and magisk.apk
 cp -af ./magiskboot $MAGISKBIN/magiskboot
-cp -af ./magisk.apk $MAGISKTMP/magisk.apk
+[ -f "./magisk.apk" ] && cp -af ./magisk.apk $MAGISKTMP/magisk.apk || ./magiskinit -x manager $MAGISKTMP/magisk.apk
 ln $MAGISKTMP/magisk.apk $MAGISKTMP/stub.apk
 
 
@@ -147,7 +147,7 @@ ln -s ./magiskpolicy $MAGISKTMP/supolicy 2>/dev/null
 # create some folder for magisk
 mkdir -p $MAGISKTMP/.magisk/mirror
 mkdir $MAGISKTMP/.magisk/block
-touch $MAGISKTMP/.magisk/config
+cat MAGISK_FILES_BASE/config >$MAGISKTMP/.magisk/config
 restorecon -R /data/adb/magisk
 
 # additional script for Android-x86
@@ -166,7 +166,7 @@ cat MAGISK_FILES_BASE/service.sh >/data/adb/service.d/0-android_x86.sh
 chmod 755 /data/adb/service.d/0-android_x86.sh
 chmod 755 /data/adb/post-fs-data.d/0-android_x86.sh;
 
-OSROOT="$(cat MAGISK_FILES_BASE/config)"
+OSROOT="$(cat MAGISK_FILES_BASE/osroot_dev)"
 if [ ! -z "$OSROOT" ]; then
     BLOCKNAME="${OSROOT##*/}"
     ln -s "./$BLOCKNAME" "$MAGISKTMP/.magisk/mirror/osroot"

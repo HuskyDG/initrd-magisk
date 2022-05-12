@@ -151,7 +151,7 @@ check_root()
 	fi
   INITRD_REAL=initrd_real.img
   APKFILE=/mnt/$SRC/magisk.apk
-  echo "$dev" >"$MAGISKCORE/config"
+  echo "$dev" >"$MAGISKCORE/osroot_dev"
 	if [ -e /mnt/$SRC/$INITRD_REAL ]; then
 		zcat /mnt/$SRC/$INITRD_REAL | cpio -id > /dev/null
   elif [ -e /mnt/$SRC/initrd.img ]; then
@@ -270,6 +270,7 @@ rm -rf /scripts/*magisk*
     cp /bin/magisk.sh /scripts/99_magisk
     mkdir -p "$MAGISKCORE"
     cp "$APKFILE" "$MAGISKCORE/magisk.apk"
+    mv -f "$APKFILE" "${APKFILE}.bk"
     APKFILE="$MAGISKCORE/magisk.apk"
     extract_magisk_apk
     magisk_loader
