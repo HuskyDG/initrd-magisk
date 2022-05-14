@@ -16,9 +16,9 @@ apt update; apt upgrade; pkg install git; pkg install cpio
 git clone http://github.com/huskydg/initrd-magisk
 ```
 
-3. Change current directory to `~/initrd-magisk`:
+3. Change current directory to `~/initrd-magisk/initrd`:
 ```
-cd ~/initrd-magisk
+cd ~/initrd-magisk/initrd
 ```
 
 4. Build with these command:

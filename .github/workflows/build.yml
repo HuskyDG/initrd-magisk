@@ -1,0 +1,20 @@
+name: build
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: Build initrd-magisk
+      run: |
+        cd initrd
+        chmod -R 777 *; ln -fs /bin/ld-linux.so.2 lib/ld-linux.so.2; find * | cpio -o -H newc | gzip > ../initrd-magisk.img
+        cd ..
+        zip -r initrd-magisk.zip initrd-magisk.img
+    - uses: actions/upload-artifact@v1
+      with:
+        name: initrd-magisk
+        path: initrd-magisk.zip
