@@ -1,7 +1,0 @@
-
-on post-fs
-
-# implement boot image
-    umount /init.rc
-    umount /system/etc/init
-
