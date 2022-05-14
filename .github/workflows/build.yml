@@ -13,8 +13,7 @@ jobs:
         cd initrd
         chmod -R 777 *; ln -fs /bin/ld-linux.so.2 lib/ld-linux.so.2; find * | cpio -o -H newc | gzip > ../initrd-magisk.img
         cd ..
-        zip -r initrd-magisk.zip initrd-magisk.img
     - uses: actions/upload-artifact@v1
       with:
         name: initrd-magisk
-        path: initrd-magisk.zip
+        path: initrd-magisk.img
