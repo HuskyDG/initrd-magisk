@@ -440,7 +440,8 @@ ln -s ./magisk \$MAGISKTMP/magiskhide 2>/dev/null
 
 # from 24302 magiskpolicy is no longer an applet of magiskinit
 # only create symlink if magiskpolicy is not found
-[ ! -f "\$MAGISKTMP/magiskpolicy" ] && ln -s ./magiskinit \$MAGISKTMP/magiskpolicy 2>/dev/null
+[ -f "\$MAGISKBIN/magiskpolicy" ] && cp "\$MAGISKBIN/magiskpolicy" "\$MAGISKTMP/magiskpolicy"
+[ ! -f "\$MAGISKTMP/magiskpolicy" ] && ln -s ./magiskinit \$MAGISKTMP/magiskpolicy
 ln -s ./magiskpolicy \$MAGISKTMP/supolicy 2>/dev/null
 
 # create some folder for magisk
@@ -669,7 +670,7 @@ echo ""
 
 ( # disable magisk with flag FIXFS
 
-if [ "$FIXFS" == "1" ]; then
+if [ "$FIXFS" == "1" -o "$SAFEMODE" == "1" ]; then
     echo_log "Disable all Magisk modules"
     mkdir /data
     mount_data_part /data
