@@ -1,11 +1,23 @@
 # initrd-magisk
-Another easy and convenient way to integrate Magisk into Android-x86 project (BlissOS, PrimeOS, ...). Check out [Wiki page](http://github.com/huskydg/initrd-magisk/wiki) for install instructions and more information.
+Another easy and convenient way to integrate Magisk, add support `boot.img` for Magisk into Android-x86 project (BlissOS, PrimeOS, ...). Check out [Wiki page](http://github.com/huskydg/initrd-magisk/wiki) for install instructions and more information.
 
 ## Build your own initrd on Linux environment
 
+If you want to implement magisk support directly into `initrd.img` instead of using split two initrd image, you can build `initrd-magisk` with all files added from `initrd.img` into `initrd/first_stage`, `initrd-magisk` will  then stop finding original initrd.
+
+Make `initrd-magisk.img` pre-rooted with Magisk by default (user can still have choice to uninstall magisk through Magisk app if they don't need): decompress `boot.img.gz` to `boot.img `, patch boot image through Magisk app. Compress patched boot image and put it as `initrd/boot.img.gz`.
+
 1. Prepare environment:
+- For Termux (Android):
 ```
 apt update; apt upgrade; pkg install git; pkg install cpio
+```
+- For Ubuntu (Linux):
+```
+sudo apt update
+sudo apt upgrade
+sudo apt-get install git
+sudo apt-get install cpio
 ```
 
 2. Clone this repo by:
