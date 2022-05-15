@@ -25,3 +25,29 @@ jobs:
       with:
         name: initrd-magisk
         path: initrd-magisk.img
+    - name: Patch boot image
+      run: |
+        cd patch
+        sh download.sh
+        cp ../initrd/boot.img.gz ./boot.img.gz
+        cp ../initrd/magisk/magiskboot.gz ./magiskboot.gz
+        gzip -d ./boot.img.gz
+        gzip -d ./magiskboot.gz
+        chmod 777 ./magiskboot
+        sh ./boot_patch.sh boot.img stable
+        sh ./boot_patch.sh boot.img canary
+        sh ./boot_patch.sh boot.img debug
+        cd ..
+    - uses: actions/upload-artifact@v1
+      with:
+        name: boot-magisk_stable
+        path: boot-magisk_stable.img
+    - uses: actions/upload-artifact@v1
+      with:
+        name: boot-magisk_canary
+        path: boot-magisk_canary.img
+    - uses: actions/upload-artifact@v1
+      with:
+        name: boot-magisk_debug
+        path: boot-magisk_debug.img
+
