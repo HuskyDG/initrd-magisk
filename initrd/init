@@ -647,9 +647,11 @@ clear
 prepare_script
 
 echo_log "initrd-magisk Android x86 $initrd_magisk_ver"
-echo -n Initialize Magisk environment...
+echo -n Initialize system environment...
 
 [ -z "$SRC" -a -n "$BOOT_IMAGE" ] && SRC=`dirname $BOOT_IMAGE`
+
+debug_log "initrd-magisk: Android source = [$SRC]"
 
 for c in `cat /proc/cmdline`; do
 	case $c in
@@ -678,6 +680,8 @@ if [ ! -f "/first_stage/init" ]; then
 	    echo -n .
     done
 fi
+
+debug_log "initrd-magisk: device block = [$device]"
 
 # do not allow real initrd override files
 rm -rf /first_stage/bin/utils.sh /first_stage/bin/magisk.sh /first_stage/bin/info.sh /first_stage/scripts/*magisk* /first_stage/magisk
@@ -717,6 +721,7 @@ rm -rf /scripts/*magisk*
 cp -af /first_stage/* /
 umount -l /first_stage
 rm -rf /first_stage
+debug_log "initrd-magisk: exec original /init"
 chmod 777 /init; exec /init
 }
 
