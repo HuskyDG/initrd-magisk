@@ -1,7 +1,7 @@
 ( # MAGISK SCRIPT
 . /bin/utils.sh
 . /bin/info.sh
-set -
+#set -
 
 # get source name of android x86
 get_src
