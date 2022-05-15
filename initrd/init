@@ -516,7 +516,7 @@ local DEST="\$2"
 
 if [ -d "\$TARGET" ]; then
         [ -L "\$DEST/\$TARGET" ] && return 0
-        for a in `ls "\$TARGET"`; do
+        for a in \\`ls "\$TARGET"\\`; do
             ( replace "\$TARGET/\$a" "\$DEST" ) &
         done
 else
@@ -538,7 +538,7 @@ fi
 
 cd "\$OVERLAYDIR"
 
-for item in `ls \$OVERLAYDIR`; do
+for item in \`ls \$OVERLAYDIR\`; do
     case "\$item" in
         "system")
             # ignore
