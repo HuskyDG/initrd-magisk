@@ -54,14 +54,14 @@ getprop(){
 
 debug_log(){
   if [ ! -z "$DEBUG" ]; then
-      echo "$1" | tee -a /tmp/initrd-magisk.log
+      echo "$1" | tee -a /dev/kmsg
   else
-      echo "$1" >>/tmp/initrd-magisk.log
+      echo "$1" >/dev/kmsg
   fi
 }
 
 echo_log(){
-  echo "$1" | tee -a /tmp/initrd-magisk.log
+  echo "$1" | tee -a /dev/kmsg
 }
 
 
