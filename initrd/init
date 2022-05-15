@@ -305,7 +305,7 @@ mnt_tmpfs(){ (
     # MOUNT TMPFS ON A DIRECTORY
     MOUNTPOINT="\$1"
     mkdir -p "\$MOUNTPOINT"
-    mount -t tmpfs -o "mode=0755" tmpfs "\$MOUNTPOINT" 2>/dev/null
+    mount -t tmpfs -o "mode=0755" tmpfs "\$MOUNTPOINT" 2>/dev/null && dmesg_log "mnt_tmpfs: \$MOUNTPOINT <- tmpfs"
 ) }
 mnt_bind(){ (
     # SHORTCUT BY BIND MOUNT
@@ -313,12 +313,15 @@ mnt_bind(){ (
     if [ -L "\$FROM" ]; then
         SOFTLN="\$(readlink "\$FROM")"
         ln -s "\$SOFTLN" "\$TO"
+        dmesg_log "create link: \$SOFTLN <- \$TO"
     elif [ -d "\$FROM" ]; then
         mkdir -p "\$TO" 2>/dev/null
         mount --bind "\$FROM" "\$TO"
+        dmesg_log "mnt_bind: \$TO <- \$FROM"
     else
         echo -n 2>/dev/null >"\$TO"
         mount --bind "\$FROM" "\$TO"
+        dmesg_log "mnt_bind: \$TO <- \$FROM"
     fi
 ) }
 cmdline() { 
@@ -347,6 +350,15 @@ exit_magisk(){
      revert_changes
      echo -n >/dev/.magisk_unblock
 }
+
+dmesg_log(){
+     echo "initrd-magisk: \$1" >/dev/kmsg
+} 
+
+copy(){
+    cp -af "\$1" "\$2" && dmesg_log "copy: \$2 <- \$1"
+}
+
 
 # make sure /dev/null exist
 [ -c "/dev/null" ] || { rm -rf /dev/null; mknod -m 666 /dev/null c 1 3; }
@@ -395,11 +407,9 @@ MAGISKTMP=\${{MAGISKTMP}}
 
 cp -af MAGISK_FILES_BASE/sbin/* \$MAGISKTMP
 chmod 755 "\$MAGISKTMP"
-set -x
 mkdir -p \$MAGISKTMP/.magisk
 mkdir -p \$MAGISKTMP/emu
-exec 2>>\$MAGISKTMP/emu/record_logs.txt
-exec >>\$MAGISKTMP/emu/record_logs.txt
+exec 2>/dev/kmsg 
 
 cd MAGISK_FILES_BASE 
 test ! -f "./\$magisk_name" && magisk_name=magisk32
@@ -421,15 +431,15 @@ chattr -R -i /data/adb/magisk
 
 # copy files to MAGISKBIN and MAGISKTMP
 for file in magisk32 magisk64 magiskinit magiskpolicy busybox mount.fuse; do
-  cp -af ./\$file \$MAGISKTMP/\$file 2>/dev/null
+  copy ./\$file \$MAGISKTMP/\$file 2>/dev/null
   chmod 755 \$MAGISKTMP/\$file
-  cp -af ./\$file \$MAGISKBIN/\$file 2>/dev/null
+  copy ./\$file \$MAGISKBIN/\$file 2>/dev/null
   chmod 755 \$MAGISKBIN/\$file
 done
 
 # copy magiskboot and magisk.apk
-cp -af ./magiskboot \$MAGISKBIN/magiskboot
-[ -f "./magisk.apk" ] && cp -af ./magisk.apk \$MAGISKTMP/magisk.apk || ./magiskinit -x manager \$MAGISKTMP/magisk.apk
+copy ./magiskboot \$MAGISKBIN/magiskboot
+[ -f "./magisk.apk" ] && copy ./magisk.apk \$MAGISKTMP/magisk.apk || ./magiskinit -x manager \$MAGISKTMP/magisk.apk
 ln \$MAGISKTMP/magisk.apk \$MAGISKTMP/stub.apk
 
 
@@ -441,7 +451,7 @@ ln -s ./magisk \$MAGISKTMP/magiskhide 2>/dev/null
 
 # from 24302 magiskpolicy is no longer an applet of magiskinit
 # only create symlink if magiskpolicy is not found
-[ -f "\$MAGISKBIN/magiskpolicy" ] && cp "\$MAGISKBIN/magiskpolicy" "\$MAGISKTMP/magiskpolicy"
+[ -f "\$MAGISKBIN/magiskpolicy" ] && copy "\$MAGISKBIN/magiskpolicy" "\$MAGISKTMP/magiskpolicy"
 [ ! -f "\$MAGISKTMP/magiskpolicy" ] && ln -s ./magiskinit \$MAGISKTMP/magiskpolicy
 ln -s ./magiskpolicy \$MAGISKTMP/supolicy 2>/dev/null
 
@@ -472,14 +482,16 @@ fi
 
 ( #fix mount data mirror
 data_inode="\$(ls -id "/data" | awk '{ print \$1 }')"
+dmesg_log "Data inode = [\$data_inode]"
 [ "\$data_inode" == "1" ] && exit
 if [ "\$data_inode" != "2" ] && [ "\$data_inode" != "3" ]; then
+    dmesg_log "/data is non-device mountpoint"
     CHECKBLOCK="\$(mountpoint -d "/data")"
     blk_major="\${CHECKBLOCK%:*}"
     blk_minor="\${CHECKBLOCK: \${#blk_major}+1}"
     mknod -m 660 "\$MAGISKTMP/.magisk/block/data" b "\$blk_major" "\$blk_minor"
     mkdir -p "\$MAGISKTMP/.magisk/mirror/data"
-    mount "\$MAGISKTMP/.magisk/block/data" "\$MAGISKTMP/.magisk/mirror/data"
+    mount "\$MAGISKTMP/.magisk/block/data" "\$MAGISKTMP/.magisk/mirror/data" && dmesg_log "mount: \$MAGISKTMP/.magisk/block/data -> \$MAGISKTMP/.magisk/mirror/data"
     rm -rf "\$MAGISKTMP/.magisk/block/data"
     mknod -m 660 "\$MAGISKTMP/.magisk/block/data" b 0 0
     touch "\$MAGISKTMP/.magisk/block/data"
@@ -495,9 +507,9 @@ if [ "\$data_inode" != "2" ] && [ "\$data_inode" != "3" ]; then
     inode_data=\$(ls -id "/data" | awk '{ print \$1 }')
 
     if [ "\$inode_data1" == "\$inode_data" ]; then
-        mount --bind "\$MAGISKTMP/.magisk/mirror/data/\$SRC/\$DATA" "\$MAGISKTMP/.magisk/mirror/data"
+        mnt_bind "\$MAGISKTMP/.magisk/mirror/data/\$SRC/\$DATA" "\$MAGISKTMP/.magisk/mirror/data"
     elif [ "\$inode_data2" == "\$inode_data" ]; then
-        mount --bind "\$MAGISKTMP/.magisk/mirror/data/\$SRC/data" "\$MAGISKTMP/.magisk/mirror/data"
+        mnt_bind "\$MAGISKTMP/.magisk/mirror/data/\$SRC/data" "\$MAGISKTMP/.magisk/mirror/data"
     fi
 fi )
 
