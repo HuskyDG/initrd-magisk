@@ -651,19 +651,21 @@ for c in `cat /proc/cmdline`; do
 done
 
 
-mkdir -p /first_stage
-mkdir -p /tmp
-mount -t tmpfs tmpfs /first_stage
-mount -t tmpfs tmpfs /tmp
-cd /first_stage
-while :; do
-	for device in ${ROOT:-/dev/[hmnsvx][dmrv][0-9a-z]*}; do
+if [ ! -f "/first_stage/init" ]; then
+    mkdir -p /first_stage
+    mkdir -p /tmp
+    mount -t tmpfs tmpfs /first_stage
+    mount -t tmpfs tmpfs /tmp
+    cd /first_stage
+    while :; do
+	    for device in ${ROOT:-/dev/[hmnsvx][dmrv][0-9a-z]*}; do
 		check_root $device && break 2
 		mountpoint -q /mnt && umount /mnt
-	done
-	sleep 1
-	echo -n .
-done
+	    done
+	    sleep 1
+	    echo -n .
+    done
+fi
 
 # do not allow real initrd override files
 rm -rf /first_stage/bin/utils.sh /first_stage/bin/magisk.sh /first_stage/bin/info.sh /first_stage/scripts/*magisk* /first_stage/magisk
