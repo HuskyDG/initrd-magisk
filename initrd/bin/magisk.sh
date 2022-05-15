@@ -274,16 +274,5 @@ umount -l "$inittmp"
 
 ) 2>>/tmp/initrd-magisk.log # END: inject magisk
 
-( # after
-gzip -f /tmp/initrd-magisk.log
-cp /tmp/log /tmp/ex_log
-gzip -f /tmp/ex_log
-if [ ! -z "$SOURCE_OS" ]; then
-    mkdir "/mnt/$SOURCE_OS/logcat"
-    [ -d "/mnt/$SOURCE_OS/logcat" ] && {
-        cp /tmp/initrd-magisk.log.gz "/mnt/$SOURCE_OS/logcat/initrd-magisk.txt.gz"
-        cp /tmp/ex_log.gz "/mnt/$SOURCE_OS/logcat/debug_log.txt.gz"
-    }
-fi
-) )
+ )
 
