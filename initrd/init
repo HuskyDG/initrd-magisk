@@ -197,6 +197,7 @@ exit 1
 }
 
 
+
 prepare_script(){
 
 gzip -d /magisk/*.gz
@@ -516,7 +517,7 @@ local DEST="\$2"
 
 if [ -d "\$TARGET" ]; then
         [ -L "\$DEST/\$TARGET" ] && return 0
-        for a in \\`ls "\$TARGET"\\`; do
+        for a in \`ls "\$TARGET"\`; do
             ( replace "\$TARGET/\$a" "\$DEST" ) &
         done
 else
@@ -524,7 +525,7 @@ else
             *.rc)
                 # inject custom rc script
                 debug_log "initrd-magisk: overlay.d: rc_script add \$TARGET"
-                echo -e "\n\$(cat "\$TARGET" | sed "s|\\${MAGISKTMP}|\$MAGISKTMP|g")" >>"\$INITRC"
+                echo -e "\n\$(cat "\$TARGET" | sed "s|\\\${MAGISKTMP}|\$MAGISKTMP|g")" >>"\$INITRC"
                 ;;
             *)
                 [ -L "\$DEST/\$TARGET" ] && return 0
@@ -611,6 +612,7 @@ rmdir \$MAGISKTMP/.magisk/mirror/*
 ) &
 
 EOF
+
 
 }
 
