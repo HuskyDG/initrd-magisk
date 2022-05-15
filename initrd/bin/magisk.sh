@@ -1,7 +1,7 @@
 ( # MAGISK SCRIPT
 . /bin/utils.sh
 . /bin/info.sh
-set -
+debug_log "initrd-magisk: MAGISKTMP = [$MAGISKTMP]"
 
 # get source name of android x86
 get_src
@@ -11,14 +11,14 @@ lazy_umount(){
 }
 
 bind_debug(){
-    mount --bind "$1" "$2" && debug_log "mnt_bind: $2 <- $1"
+    mount --bind "$1" "$2" && debug_log "initrd-magisk: mnt_bind: $2 <- $1"
 }
 
 bind_policy(){
 policy="$1"
 umount -l "$1"
-/magisk/magiskpolicy --load "$policy" --save "$inittmp/.overlay/policy" --magisk "allow * magisk_file lnk_file *" 2>>/tmp/magiskpolicy.txt && debug_log "magiskpolicy: inject magisk built-in rules"
-/magisk/magiskpolicy --load "$inittmp/.overlay/policy" --save "$inittmp/.overlay/policy" --apply "$module_policy" 2>>/tmp/magiskpolicy.txt && debug_log "magiskpolicy: inject magisk modules sepolicy.rule"
+/magisk/magiskpolicy --load "$policy" --save "$inittmp/.overlay/policy" --magisk "allow * magisk_file lnk_file *" 2>>/tmp/magiskpolicy.txt && debug_log "initrd-magisk: magiskpolicy: inject magisk built-in rules"
+/magisk/magiskpolicy --load "$inittmp/.overlay/policy" --save "$inittmp/.overlay/policy" --apply "$module_policy" 2>>/tmp/magiskpolicy.txt && debug_log "initrd-magisk: magiskpolicy: inject magisk modules sepolicy.rule"
 bind_debug $inittmp/.overlay/policy "$policy"
 }
 
@@ -78,6 +78,7 @@ killall -9 magiskd
 if [ -f "/mnt/$SOURCE_OS/boot-magisk.img" ]; then
      loop_setup  "/mnt/$SOURCE_OS/boot-magisk.img"
      BOOTIMAGE="$LOOPDEV"
+     debug_log "initrd-magisk: boot image = $BOOTIMAGE"
 fi
 
 ( # BEGIN : inject magisk
@@ -145,12 +146,7 @@ done
 if [ "$FOUND_MAGISK" == 0 ]; then 
     debug_log "initrd-magisk: boot image does not contain magisk";
     if [ -f "$MAGISKCORE/magisk.apk" ]; then
-        echo_log "Load magisk temporarily from magisk.apk"
-        echo "After system boot completed, you need to open Magisk app and do Direct Install"
-        echo "If you cannot find Magisk app, you can install Magisk app from [Internal Storage]"
-        echo "Resume system boot after 5 seconds..."
-        sleep 5;
-        true
+        echo "Load magisk temporarily from magisk.apk"
     fi
 else
     debug_log "initrd-magisk: loaded magisk from boot image"
