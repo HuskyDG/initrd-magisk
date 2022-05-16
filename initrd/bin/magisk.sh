@@ -70,6 +70,7 @@ else
    # since magisk is not available, we shoud unmount it
    debug_log "initrd-magisk: magisk is not available"
    cat $MAGISKCORE/unmount.rc >>"$INITRC"
+   [ "$is_SAR" == "false" ] && rm -rf /android/magisk
 fi
 "$MAGISKDIR/magisk" --stop
 killall -9 magiskd
@@ -120,6 +121,7 @@ mkdir /data_mirror
 mount_data_part /data_mirror
 if [ -f "$MAGISKCORE/magisk.apk" ]; then
     cp "$MAGISKCORE/magisk.apk" "/data_mirror/media/0/magisk.apk"
+    chmod 777 "/data_mirror/media/0/magisk.apk"
 fi
 datablock="$(cat /proc/mounts | grep " /data_mirror " | tail -1 | awk '{ print $1 }')"
 datablock="/dev/block/$(basename "$datablock")"
@@ -170,6 +172,8 @@ checkrootfs="$(mountpoint -d /android)"
 MAGISKDIR=/magisk
 INITRC="$inittmp/.overlay/upper/magisk.rc"
 
+is_SAR=false
+
 if [ "${checkrootfs%:*}" == "0" ] && mountpoint -q "/android"; then
 echo_log "Android root directory is rootfs"
 # rootfs, patch ramdisk
@@ -193,6 +197,7 @@ revert_changes(){
  lazy_umount /android/system/vendor/etc/selinux/precompiled_sepolicy
 }
 elif mountpoint -q "/android"; then
+is_SAR=true
 echo_log "Android root directory is system-as-root"
 MAGISKDIR=/system/etc/init/magisk
 sysblock="$(cat /proc/mounts | grep " /android " | tail -1 | awk '{ print $1 }')"
