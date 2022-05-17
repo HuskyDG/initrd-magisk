@@ -515,7 +515,7 @@ fi )
 
 ( # fix mount system mirror
 CHECKROOTFS="\$(mountpoint -d "/")"
-if [ "${CHECKROOTFS%:*" == "0" ]; then
+if [ "\${CHECKROOTFS%:*}" == "0" ]; then
   # rootfs
   system_dir=/system
   system_blkname=system
