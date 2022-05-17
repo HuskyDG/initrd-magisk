@@ -1,3 +1,68 @@
+install_utils(){
+local func
+for func in getprop grep_prop mount_data_part cmdline loop_setup extract_system freboot; do
+	cat <<EOF >/bin/$func
+#!/bin/busybox sh
+PATH=/sbin:/bin:/system/bin:/system/xbin
+dirname(){
+    case "\$1" in
+        /*)
+            echo "\${1%/*}"
+            ;;
+        ./*)
+            echo "\${1%/*}"
+            ;;
+        ../*)
+            echo "\${1%/*}"
+            ;;
+        *)
+            local dir="./\$1"
+            echo "\${dir%/*}"
+    esac
+}
+
+. "\${0%/*}/utils.sh"
+"\$(basename "$0")" \$@
+EOF
+done
+}
+
+freboot(){
+	echo b >/proc/sysrq-trigger
+}
+
+extract_system(){
+get_src
+
+if [ -f "/sfs/system.img" ] && [ -f "/mnt/$SOURCE_OS/system.sfs" ]; then
+    echo "Extracting system image..."
+    cp /sfs/system.img "/mnt/$SOURCE_OS/system.img" || abort "! Failed to create system.img"
+    rm -rf "/mnt/$SOURCE_OS/system.sfs"
+elif [ -f "/mnt/$SOURCE_OS/system.sfs" ]; then
+    echo "Extracting system image..."
+    mount -o ro "/mnt/$SOURCE_OS/system.sfs" /sfs || abort "! Failed to mount system.sfs"
+    if [ -f "/sfs/system.img" ]; then 
+        echo "Extracting system image..."
+        cp /sfs/system.img "/mnt/$SOURCE_OS/system.img" || abort "! Failed to create system.img"
+        rm -rf "/mnt/$SOURCE_OS/system.sfs"
+    else 
+        echo "Extracting system image..."
+        dd if=/dev/zero of="/mnt/$SOURCE_OS/system.img" bs=4098 count=1220703 || abort "! Failed to create system.img"
+        mkfs.ext4 "/mnt/$SOURCE_OS/system.img" # create ext4 filesystem image
+        mkdir /image_loop
+        mount -o ro,loop "/mnt/$SOURCE_OS/system.img" /image_loop
+        mount -o rw,remount /image_loop || abort "! Failed to mount loop system.img"
+        cp -af /sys/* /image_loop || abort "! Failed to copy files from system.sfs to system.img"
+    fi
+elif [ -f "/mnt/$SOURCE_OS/system.img" ]; then
+    abort "! System is already extracted"
+else
+    abort "! Cannot find system image"
+fi
+echo "System image has been extracted successfully!"
+}
+
+
 mount_data_part(){
 MP="$1"
 data_bind=false

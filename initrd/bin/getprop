@@ -1,3 +1,0 @@
-#!/bin/busybox sh
-. "${0%/*}/utils.sh"
-"$(basename "$0")" $@
