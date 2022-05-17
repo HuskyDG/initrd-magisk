@@ -1,3 +1,3 @@
-initrd_magisk_ver=v1.13
+initrd_magisk_ver=v1.14
 MAGISKCORE=/magisk
 TMPDIR=/tmp
