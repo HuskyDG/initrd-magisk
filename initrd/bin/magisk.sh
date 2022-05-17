@@ -205,6 +205,20 @@ sysblock="/dev/block/$(basename "$sysblock")"
 bootrc
 mkdir /android/dev/system_root
 mount $sysblock /android/dev/system_root || mount -o ro $sysblock /android/dev/system_root
+sys_mirror_inode="$(ls -id /android/dev/system_root | awk '{ print $1 }')"
+sys_inode="$(ls -id /android | awk '{ print $1 }')"
+
+# for user use system folder instead of system.img or system.sfs
+if [ "$sys_inode" != "$sys_mirror_inode" ]; then
+  mkdir /android/dev/osroot
+  mount --move /android/dev/system_root /android/dev/osroot
+  if [ -s "/android/dev/osroot/$SOURCE_OS/system/default.prop" ]; then
+		mount --bind /android/dev/osroot/$SOURCE_OS/system /android/dev/system_root
+  elif [ -z "$SOURCE_OS" -a -s /android/dev/osroot/default.prop ]; then
+		mount --bind /android/dev/osroot /android/dev/system_root
+  fi
+fi
+
 # prepare for second stage
 chmod 750 $inittmp
 lazy_umount /android/system/etc/init

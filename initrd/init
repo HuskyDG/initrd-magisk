@@ -513,6 +513,45 @@ if [ "\$data_inode" != "2" ] && [ "\$data_inode" != "3" ]; then
     fi
 fi )
 
+( # fix mount system mirror
+CHECKROOTFS="\$(mountpoint -d "/")"
+if [ "\${CHECKROOTFS%:*}" == "0" ]; then
+  # rootfs
+  system_dir=/system
+  system_blkname=system
+else
+  # system-as-root
+  system_dir=/
+  system_blkname=system_root
+fi
+system_inode="\$(ls -id "\$system_dir" | awk '{ print \$1 }')"
+dmesg_log "System inode = [\$system_inode]"
+[ "\$system_inode" == "1" ] && exit # can't fix
+if [ "\$system_inode" != "2" ] && [ "\$system_inode" != "3" ]; then
+    dmesg_log "\$system_dir is non-device mountpoint"
+    CHECKBLOCK="\$(mountpoint -d "\$system_dir")"
+    blk_major="\${CHECKBLOCK%:*}"
+    blk_minor="\${CHECKBLOCK: \${#blk_major}+1}"
+    mknod -m 660 "\$MAGISKTMP/.magisk/block/\$system_blkname" b "\$blk_major" "\$blk_minor"
+    mkdir -p "\$MAGISKTMP/.magisk/mirror/\$system_blkname"
+    mount "\$MAGISKTMP/.magisk/block/\$system_blkname" "\$MAGISKTMP/.magisk/mirror/\$system_blkname" && dmesg_log "mount: \$MAGISKTMP/.magisk/block/\$system_blkname -> \$MAGISKTMP/.magisk/mirror/\$system_blkname"
+    rm -rf "\$MAGISKTMP/.magisk/block/\$system_blkname"
+    mknod -m 660 "\$MAGISKTMP/.magisk/block/\$system_blkname" b 0 0
+    touch "\$MAGISKTMP/.magisk/block/\$system_blkname"
+    chattr +i "\$MAGISKTMP/.magisk/block/\$system_blkname"
+
+    test -z "\$SRC" && SRC="\${BIPATH%/*}"
+    test -z "\$SRC" && exit
+
+    inode_system_mirror=\$(ls -id "\$MAGISKTMP/.magisk/mirror/\$system_blkname/\$SRC/system" | awk '{ print \$1 }')
+    inode_system=\$(ls -id "\$system_dir" | awk '{ print \$1 }')
+
+    if [ "\$inode_system_mirror" == "\$inode_system" ]; then
+        mnt_bind "\$MAGISKTMP/.magisk/mirror/\$system_blkname/\$SRC/system" "\$MAGISKTMP/.magisk/mirror/\$system_blkname"
+    fi
+fi
+)
+
 
 # revert all changes because all patch files have been loaded by init
 revert_changes
