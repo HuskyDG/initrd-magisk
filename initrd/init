@@ -154,10 +154,13 @@ check_root()
   echo "$dev" >"$MAGISKCORE/osroot_dev"
 	if [ -e /mnt/$SRC/$INITRD_REAL ]; then
 		zcat /mnt/$SRC/$INITRD_REAL | cpio -id > /dev/null
+                INITRD_IMAGE="/mnt/$SRC/$INITRD_REAL"
   elif [ -e /mnt/$SRC/initrd.img ]; then
     zcat /mnt/$SRC/initrd.img | cpio -id > /dev/null
+                INITRD_IMAGE="/mnt/$SRC/initrd.img"
 	elif [ -b /dev/$INITRD_REAL ]; then
 		zcat /dev/$INITRD_REAL | cpio -id > /dev/null
+                INITRD_IMAGE="/dev/$INITRD_REAL"
 	else
 		return 1
 	fi
@@ -718,6 +721,15 @@ if [ ! -f "/first_stage/init" ]; then
 	    sleep 1
 	    echo -n .
     done
+fi
+
+# patched initrd
+if mountpoint -q /first_stage && [ -f /first_stage/first_stage/init ] && [ ! -z "$INITRD_IMAGE" ]; then
+    echo -n "Restore initial ramdisk image..."
+    ( cd /first_stage/first_stage; find * | cpio -o -H newc | gzip >"$INITRD_IMAGE" ) && echo "Done" || echo "Failed"
+    echo "Reboot in 5 seconds..."
+    sleep 5
+    echo b >/proc/sysrq-trigger
 fi
 
 debug_log "initrd-magisk: device block = [$device]"
