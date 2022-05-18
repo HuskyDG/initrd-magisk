@@ -726,7 +726,7 @@ fi
 
 # patched initrd
 if mountpoint -q /first_stage && [ -f /first_stage/first_stage/init ] && [ ! -z "$INITRD_IMAGE" ]; then
-    echo -n "Restore initial ramdisk image..."
+    echo -en "\nRestore initial ramdisk image..."
     ( cd /first_stage/first_stage; find * | cpio -o -H newc | gzip >"$INITRD_IMAGE" ) && echo "Done" || echo "Failed"
     echo "Reboot in 5 seconds..."
     sleep 5
