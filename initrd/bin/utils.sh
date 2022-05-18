@@ -154,11 +154,7 @@ getprop(){
 }
 
 debug_log(){
-  if [ ! -z "$DEBUG" ]; then
-      echo "$1" | tee -a /dev/kmsg
-  else
-      echo "$1" >/dev/kmsg
-  fi
+  echo "$1" >/dev/kmsg
 }
 
 echo_log(){
