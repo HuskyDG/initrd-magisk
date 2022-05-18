@@ -1,6 +1,6 @@
 install_utils(){
 local func
-for func in getprop grep_prop mount_data_part cmdline loop_setup extract_system freboot; do
+for func in getprop grep_prop mount_data_part cmdline loop_setup extract_system freboot tmpfs_file; do
 	cat <<EOF >/bin/$func
 #!/bin/busybox sh
 PATH=/sbin:/bin:/system/bin:/system/xbin
@@ -24,12 +24,26 @@ dirname(){
 . "\${0%/*}/utils.sh"
 "\$(basename "$0")" \$@
 EOF
+    chmod 777 /bin/$func
 done
 }
 
 freboot(){
 	echo b >/proc/sysrq-trigger
 }
+
+
+tmpfs_file(){
+    local file="$1"
+    [ ! -f "$file" ] && return
+    mkdir "/dev/.overlay_$RANDOM"
+    mount -t tmpfs tmpfs "/dev/.overlay_$RANDOM"
+    cp "$file" "/dev/.overlay_$RANDOM/file"
+    mount --bind "/dev/.overlay_$RANDOM/file" "$file"
+    umount -l "/dev/.overlay_$RANDOM"
+    rm -rf "/dev/.overlay_$RANDOM"
+}
+
 
 extract_system(){
 get_src
