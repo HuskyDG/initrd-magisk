@@ -1,6 +1,6 @@
 install_utils(){
 local func
-for func in getprop grep_prop mount_data_part cmdline loop_setup extract_system freboot tmpfs_file; do
+for func in getprop grep_prop mount_data_part cmdline loop_setup extract_system freboot tmpfs_file setprop; do
 	cat <<EOF >/bin/$func
 #!/bin/busybox sh
 PATH=/sbin:/bin:/system/bin:/system/xbin
@@ -35,13 +35,19 @@ freboot(){
 
 tmpfs_file(){
     local file="$1"
+    local overlaydir="/dev/.overlay_$RANDOM"
     [ ! -f "$file" ] && return
-    mkdir "/dev/.overlay_$RANDOM"
-    mount -t tmpfs tmpfs "/dev/.overlay_$RANDOM"
-    cp "$file" "/dev/.overlay_$RANDOM/file"
-    mount --bind "/dev/.overlay_$RANDOM/file" "$file"
-    umount -l "/dev/.overlay_$RANDOM"
-    rm -rf "/dev/.overlay_$RANDOM"
+    mkdir "$overlaydir"
+    mount -t tmpfs tmpfs "$overlaydir"
+    cp -af "$file" "$overlaydir/file"
+    mount --bind "$overlaydir/file" "$file"
+    umount -l "$overlaydir"
+    rm -rf "$overlaydir"
+}
+
+setprop(){
+    mount -t tmpfs | grep -q " /android/default.prop " || tmpfs_file /android/default.prop
+    ( echo "$1=$2"; sed "/^$1=/d" /android/default.prop ) >/android/default.prop
 }
 
 
