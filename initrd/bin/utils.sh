@@ -46,8 +46,10 @@ tmpfs_file(){
 }
 
 setprop(){
+    local prop="$1"
+    local name="$2"
     mount -t tmpfs | grep -q " /android/default.prop " || tmpfs_file /android/default.prop
-    ( echo "$1=$2"; sed "/^$1=/d" /android/default.prop ) >/android/default.prop
+    ( echo "$prop=$name"; grep -v "^$prop=" /android/default.prop ) >/android/default.prop
 }
 
 
@@ -131,6 +133,10 @@ grep_prop() {
 getprop(){
    local result
    local PROP="$1"
+   [ -z "$PROP" ] && {
+       echo "Cannot list all properties in this mode" >&2
+       return 1
+   }
    for file in /default.prop /system/build.prop /system/vendor/default.prop /system/vendor/build.prop /system/vendor/build.prop /system/vendor/odm/etc/build.prop /system/product/build.prop /system/system_ext/build.prop /vendor/build.prop /vendor/build.prop /vendor/odm/etc/build.prop /odm/etc/build.prop /product/build.prop /system_ext/build.prop; do
        result="$(grep_prop "$PROP" "/android$file")"
        [ ! -z "$result" ] && { echo "$result"; break; }
