@@ -289,5 +289,22 @@ umount -l "$inittmp"
 
 ) 2>>/tmp/initrd-magisk.log # END: inject magisk
 
+# wrapper sh command to make magisk su work properly in chroot environment
+# Note: Gearlock will clear this wrapper, hard to prevent this
+
+  [ -L "/system" ] && rm -f /system
+  [ -f "/system" ] && rm -f /system
+  mkdir /system 
+  mount --bind /android/system /system
+  mount -o ro,remount /system
+  tmpfs_file /system/bin/sh
+  cat <<EOF >/system/bin/sh
+#!/android/system/bin/sh
+name="\${0##*/}"
+chroot /android "/system/bin/\$name"
+EOF
+  chmod 777 /system/bin/su
+
+
  )
 
