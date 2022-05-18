@@ -301,7 +301,7 @@ umount -l "$inittmp"
   cat <<EOF >/system/bin/sh
 #!/android/system/bin/sh
 name="\${0##*/}"
-chroot /android "/system/bin/\$name"
+chroot /android "/system/bin/\$name" "\$@"
 EOF
   chmod 777 /system/bin/su
 
