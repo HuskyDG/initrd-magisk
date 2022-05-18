@@ -56,8 +56,10 @@ setprop(){
     local prop="$1"
     local name="$2"
     local propfile="$(open_tmpfile /android/default.prop)"
+    [ -z "$propfile" ] && return 1
     mount -t tmpfs | grep -q " /android/default.prop " || tmpfs_file /android/default.prop
     ( echo "$prop=$name"; grep -v "^$prop=" "$propfile" ) >/android/default.prop
+    rm -rf "$propfile"
 }
 
 
