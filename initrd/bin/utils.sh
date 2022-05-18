@@ -22,7 +22,7 @@ dirname(){
 }
 
 . "\${0%/*}/utils.sh"
-"\$(basename "$0")" \$@
+"\$(basename "\$0")" \$@
 EOF
     chmod 777 /bin/$func
 done
