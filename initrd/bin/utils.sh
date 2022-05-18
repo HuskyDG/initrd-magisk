@@ -1,6 +1,6 @@
 install_utils(){
 local func
-for func in getprop grep_prop mount_data_part cmdline loop_setup extract_system freboot tmpfs_file setprop; do
+for func in getprop grep_prop mount_data_part cmdline loop_setup extract_system freboot tmpfs_file setprop open_tmpfile; do
 	cat <<EOF >/bin/$func
 #!/bin/busybox sh
 PATH=/sbin:/bin:/system/bin:/system/xbin
@@ -32,6 +32,13 @@ freboot(){
 	echo b >/proc/sysrq-trigger
 }
 
+open_tmpfile(){
+    TMPFILE="/dev/$(tr -dc A-Za-z0-9 </dev/urandom | head -c 20).tmp"
+    if [ ! -z "$1" ] && [ -f "$(readlink -f "$1")" ]; then
+        rm -f "$TMPFILE"
+        cp -af "$(readlink -f "$1")" "$TMPFILE" && echo "$TMPFILE"
+    fi
+}
 
 tmpfs_file(){
     local file="$1"
@@ -48,8 +55,9 @@ tmpfs_file(){
 setprop(){
     local prop="$1"
     local name="$2"
+    local propfile="$(open_tmpfile /android/default.prop)"
     mount -t tmpfs | grep -q " /android/default.prop " || tmpfs_file /android/default.prop
-    ( echo "$prop=$name"; grep -v "^$prop=" /android/default.prop ) >/android/default.prop
+    ( echo "$prop=$name"; grep -v "^$prop=" "$propfile" ) >/android/default.prop
 }
 
 
