@@ -595,19 +595,7 @@ cd "\$OVERLAYDIR"
 
 for item in \`ls \$OVERLAYDIR\`; do
     case "\$item" in
-        "system")
-            # ignore
-            ;;
-        "vendor")
-            # ignore
-            ;;
         "data")
-            # ignore
-            ;;
-        "product")
-            # ignore
-            ;;
-        "system_ext")
             # ignore
             ;;
          "init.rc")
