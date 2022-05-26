@@ -81,6 +81,7 @@ if [ -f "/mnt/$SOURCE_OS/boot-magisk.img" ]; then
      BOOTIMAGE="$LOOPDEV"
      debug_log "initrd-magisk: boot image = $BOOTIMAGE"
 fi
+[ -z "$BOOTIMAGE" ] && BOOTIMAGE=/dev/null
 
 ( # BEGIN : inject magisk
 
