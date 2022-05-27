@@ -1,4 +1,4 @@
-#!/system/bin/sh
+#!/sbin/sh
 export PATH=/sbin:/bin:/system/bin:/system/xbin
 exec 2>/dev/null
 VALUE="$1"
