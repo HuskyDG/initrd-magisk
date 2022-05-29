@@ -92,6 +92,9 @@ else
     abort "! Cannot find system image"
 fi
 echo "System image has been extracted successfully!"
+echo "Reboot in 5 seconds..."
+sleep 5
+freboot
 }
 
 
