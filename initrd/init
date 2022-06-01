@@ -438,8 +438,6 @@ chattr -R -i /data/adb/magisk
 for file in magisk32 magisk64 magiskinit magiskpolicy busybox mount.fuse; do
   copy ./\$file \$MAGISKTMP/\$file 2>/dev/null
   chmod 755 \$MAGISKTMP/\$file
-  copy ./\$file \$MAGISKBIN/\$file 2>/dev/null
-  chmod 755 \$MAGISKBIN/\$file
 done
 
 # copy magiskboot and magisk.apk
