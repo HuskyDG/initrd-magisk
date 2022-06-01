@@ -6,6 +6,8 @@ Another easy and convenient way to integrate Magisk, add support `boot.img` for 
 
 ## Build your own initrd on Linux environment
 
+If you want to merge initrd-magisk support directly into `initrd.img` instead of using split two initrd image, you can build `initrd-magisk` with all files added from `initrd.img` into `initrd/first_stage`, `initrd-magisk` will  then stop finding original initrd.
+
 You can make `initrd-magisk.img` pre-rooted with Magisk by default (user can still have choice to uninstall magisk through Magisk app if they don't need): decompress `boot.img.gz` to `boot.img `, patch boot image through Magisk app. Compress patched boot image with gzip format and put it as `initrd/boot.img.gz`.
 
 1. Prepare environment:
