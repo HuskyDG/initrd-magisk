@@ -43,7 +43,7 @@ jobs:
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v3.1.0
       with:
-        name: boot-magisk_stable
+        name: Boot image for initrd-magisk
         path: |
             boot-magisk_stable.img
             boot-magisk_canary.img
