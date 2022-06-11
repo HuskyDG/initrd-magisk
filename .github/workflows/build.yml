@@ -37,6 +37,8 @@ jobs:
         sh ./boot_patch.sh boot.img stable
         sh ./boot_patch.sh boot.img canary
         sh ./boot_patch.sh boot.img debug
+        sh ./boot_patch.sh boot.img canary-huskydg
+        sh ./boot_patch.sh boot.img debug-huskydg
         cd ..
     - uses: actions/upload-artifact@v1
       with:
@@ -50,4 +52,12 @@ jobs:
       with:
         name: boot-magisk_debug
         path: boot-magisk_debug.img
+    - uses: actions/upload-artifact@v1
+      with:
+        name: boot-magisk_canary-huskydg
+        path: boot-magisk_canary-huskydg.img 
+    - uses: actions/upload-artifact@v1
+      with:
+        name: boot-magisk_debug-huskydg
+        path: boot-magisk_debug-huskydg.img
 
