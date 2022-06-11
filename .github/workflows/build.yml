@@ -40,24 +40,13 @@ jobs:
         sh ./boot_patch.sh boot.img canary-huskydg
         sh ./boot_patch.sh boot.img debug-huskydg
         cd ..
-    - uses: actions/upload-artifact@v1
+    - name: Upload a Build Artifact
+      uses: actions/upload-artifact@v3.1.0
       with:
         name: boot-magisk_stable
-        path: boot-magisk_stable.img
-    - uses: actions/upload-artifact@v1
-      with:
-        name: boot-magisk_canary
-        path: boot-magisk_canary.img
-    - uses: actions/upload-artifact@v1
-      with:
-        name: boot-magisk_debug
-        path: boot-magisk_debug.img
-    - uses: actions/upload-artifact@v1
-      with:
-        name: boot-magisk_canary-huskydg
-        path: boot-magisk_canary-huskydg.img 
-    - uses: actions/upload-artifact@v1
-      with:
-        name: boot-magisk_debug-huskydg
-        path: boot-magisk_debug-huskydg.img
-
+        path: |
+            boot-magisk_stable.img
+            boot-magisk_canary.img
+            boot-magisk_debug.img
+            boot-magisk_canary-huskydg.img
+            boot-magisk_debug-huskydg.img    
