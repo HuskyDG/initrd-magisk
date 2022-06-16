@@ -300,6 +300,14 @@ service \${{BOOTCOMPLETED}} \${{MAGISKTMP}}/magisk --boot-complete
     seclabel u:r:magisk:s0
     oneshot
 
+# handle zygote restart / crash (need Magisk v25+)
+on property:init.svc.zygote=restarting
+    exec u:r:magisk:s0 root root -- \${{MAGISKTMP}}/magisk --zygote-restart
+
+on property:init.svc.zygote=stopped
+    exec u:r:magisk:s0 root root -- \${{MAGISKTMP}}/magisk --zygote-restart
+
+
 EOF
 
 cat <<EOF >/magisk/overlay.sh
