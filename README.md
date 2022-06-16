@@ -24,7 +24,6 @@ sudo apt-get install cpio
 ```
 
 2. Clone this repo by:
-
 ```
 git clone http://github.com/huskydg/initrd-magisk
 ```
