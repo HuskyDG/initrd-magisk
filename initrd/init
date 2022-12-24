@@ -121,7 +121,7 @@ magisk_loader(){
     # always use "/dev/<random_string>" as magisk tmpfs
     MAGISKTMP="/dev/$dev_random"
     echo -e "\nMAGISKTMP=/dev/$dev_random" >>/bin/utils.sh
-    for item in post-fs-data.sh service.sh magisk.rc overlay.sh magisksu_survival.sh; do
+    for item in post-fs-data.sh service.sh magisk.rc overlay.sh; do
          sed -i "s|\${{MAGISKTMP}}|$MAGISKTMP|g" /magisk/$item
     done
     sed -i "s|\${{POSTFSDATA}}|$magisk_postfsdata|g" /magisk/magisk.rc
@@ -237,19 +237,11 @@ cat <<EOF >/magisk/magisk.rc
 
 on early-init
     # initialize magisk enviroment
-    umount /sbin
     mkdir \${{MAGISKTMP}}
     mount tmpfs tmpfs \${{MAGISKTMP}}
     chmod 755 \${{MAGISKTMP}}
 
 on post-fs-data
-    #remove rusty-magisk gearlock module
-    rm /data/ghome/gearboot/overlay/rusty-magisk/init/init.superuser.rc
-    rm /data/.rusty-magisk/magisk.apk
-    rm /data/.rusty-magisk/magisk
-    rm /data/ghome/.local/bin/rusty-magisk
-
-
     start logd
     start adbd
     rm /dev/.magisk_unblock
@@ -279,28 +271,11 @@ on property:sys.boot_completed=1
     # start magisk boot_completed event
     start \${{BOOTCOMPLETED}}
 
-    # remove magisk service traces from some detection
-    # although detect modified init.rc is not always correct
-
-    exec u:r:magisk:s0 root root -- \${{MAGISKTMP}}/magisk resetprop --delete init.svc.\${{POSTFSDATA}}
-    exec u:r:magisk:s0 root root -- \${{MAGISKTMP}}/magisk resetprop --delete init.svc.\${{SERVICE}}
-    exec u:r:magisk:s0 root root -- \${{MAGISKTMP}}/magisk resetprop --delete init.svc.\${{BOOTCOMPLETED}}
-    exec u:r:magisk:s0 root root -- \${{MAGISKTMP}}/magisk resetprop --delete init.svc_debug_pid.\${{POSTFSDATA}}
-    exec u:r:magisk:s0 root root -- \${{MAGISKTMP}}/magisk resetprop --delete init.svc_debug_pid.\${{SERVICE}}
-    exec u:r:magisk:s0 root root -- \${{MAGISKTMP}}/magisk resetprop --delete init.svc_debug_pid.\${{BOOTCOMPLETED}}
-
-    # hide unencrypted data
-    exec u:r:magisk:s0 root root -- \${{MAGISKTMP}}/magisk resetprop ro.crypto.state encrypted
-
-    # custom script
-    exec_background u:r:magisk:s0 root root -- \${{MAGISKTMP}}/busybox sh -o standalone \${{MAGISKTMP}}/emu/magisksu_survival.sh
-
 service \${{BOOTCOMPLETED}} \${{MAGISKTMP}}/magisk --boot-complete
     user root
     seclabel u:r:magisk:s0
     oneshot
 
-# handle zygote restart / crash (need Magisk v25+)
 on property:init.svc.zygote=restarting
     exec u:r:magisk:s0 root root -- \${{MAGISKTMP}}/magisk --zygote-restart
 
@@ -472,8 +447,6 @@ mkdir \$MAGISKTMP/.magisk/block
 cat MAGISK_FILES_BASE/config >\$MAGISKTMP/.magisk/config
 restorecon -R /data/adb/magisk
 
-cat MAGISK_FILES_BASE/magisksu_survival.sh >\$MAGISKTMP/emu/magisksu_survival.sh
-
 OSROOT="\$(cat MAGISK_FILES_BASE/osroot_dev)"
 if [ ! -z "\$OSROOT" ]; then
     BLOCKNAME="\${OSROOT##*/}"
@@ -489,79 +462,6 @@ fi
 
 # if magisk does not exist
 [ ! -f "\$MAGISKTMP/magisk" ] && exit_magisk
-
-
-( #fix mount data mirror
-data_inode="\$(ls -id "/data" | awk '{ print \$1 }')"
-dmesg_log "Data inode = [\$data_inode]"
-[ "\$data_inode" == "1" ] && exit
-if [ "\$data_inode" != "2" ] && [ "\$data_inode" != "3" ]; then
-    dmesg_log "/data is non-device mountpoint"
-    CHECKBLOCK="\$(mountpoint -d "/data")"
-    blk_major="\${CHECKBLOCK%:*}"
-    blk_minor="\${CHECKBLOCK: \${#blk_major}+1}"
-    mknod -m 660 "\$MAGISKTMP/.magisk/block/data" b "\$blk_major" "\$blk_minor"
-    mkdir -p "\$MAGISKTMP/.magisk/mirror/data"
-    mount "\$MAGISKTMP/.magisk/block/data" "\$MAGISKTMP/.magisk/mirror/data" && dmesg_log "mount: \$MAGISKTMP/.magisk/block/data -> \$MAGISKTMP/.magisk/mirror/data"
-    rm -rf "\$MAGISKTMP/.magisk/block/data"
-    mknod -m 660 "\$MAGISKTMP/.magisk/block/data" b 0 0
-    touch "\$MAGISKTMP/.magisk/block/data"
-    chattr +i "\$MAGISKTMP/.magisk/block/data"
-
-    DATA="\$(cmdline DATA)"
-    test -z "\$SRC" && SRC="\${BIPATH%/*}"
-    test -z "\$SRC" && exit
-    test -z "\$DATA" && DATA=data
-
-    inode_data1=\$(ls -id "\$MAGISKTMP/.magisk/mirror/data/\$SRC/\$DATA" | awk '{ print \$1 }')
-    inode_data2=\$(ls -id "\$MAGISKTMP/.magisk/mirror/data/\$SRC/data" | awk '{ print \$1 }')
-    inode_data=\$(ls -id "/data" | awk '{ print \$1 }')
-
-    if [ "\$inode_data1" == "\$inode_data" ]; then
-        mnt_bind "\$MAGISKTMP/.magisk/mirror/data/\$SRC/\$DATA" "\$MAGISKTMP/.magisk/mirror/data"
-    elif [ "\$inode_data2" == "\$inode_data" ]; then
-        mnt_bind "\$MAGISKTMP/.magisk/mirror/data/\$SRC/data" "\$MAGISKTMP/.magisk/mirror/data"
-    fi
-fi )
-
-( # fix mount system mirror
-CHECKROOTFS="\$(mountpoint -d "/")"
-if [ "\${CHECKROOTFS%:*}" == "0" ]; then
-  # rootfs
-  system_dir=/system
-  system_blkname=system
-else
-  # system-as-root
-  system_dir=/
-  system_blkname=system_root
-fi
-system_inode="\$(ls -id "\$system_dir" | awk '{ print \$1 }')"
-dmesg_log "System inode = [\$system_inode]"
-[ "\$system_inode" == "1" ] && exit # can't fix
-if [ "\$system_inode" != "2" ] && [ "\$system_inode" != "3" ]; then
-    dmesg_log "\$system_dir is non-device mountpoint"
-    CHECKBLOCK="\$(mountpoint -d "\$system_dir")"
-    blk_major="\${CHECKBLOCK%:*}"
-    blk_minor="\${CHECKBLOCK: \${#blk_major}+1}"
-    mknod -m 660 "\$MAGISKTMP/.magisk/block/\$system_blkname" b "\$blk_major" "\$blk_minor"
-    mkdir -p "\$MAGISKTMP/.magisk/mirror/\$system_blkname"
-    mount "\$MAGISKTMP/.magisk/block/\$system_blkname" "\$MAGISKTMP/.magisk/mirror/\$system_blkname" && dmesg_log "mount: \$MAGISKTMP/.magisk/block/\$system_blkname -> \$MAGISKTMP/.magisk/mirror/\$system_blkname"
-    rm -rf "\$MAGISKTMP/.magisk/block/\$system_blkname"
-    mknod -m 660 "\$MAGISKTMP/.magisk/block/\$system_blkname" b 0 0
-    touch "\$MAGISKTMP/.magisk/block/\$system_blkname"
-    chattr +i "\$MAGISKTMP/.magisk/block/\$system_blkname"
-
-    test -z "\$SRC" && SRC="\${BIPATH%/*}"
-    test -z "\$SRC" && exit
-
-    inode_system_mirror=\$(ls -id "\$MAGISKTMP/.magisk/mirror/\$system_blkname/\$SRC/system" | awk '{ print \$1 }')
-    inode_system=\$(ls -id "\$system_dir" | awk '{ print \$1 }')
-
-    if [ "\$inode_system_mirror" == "\$inode_system" ]; then
-        mnt_bind "\$MAGISKTMP/.magisk/mirror/\$system_blkname/\$SRC/system" "\$MAGISKTMP/.magisk/mirror/\$system_blkname"
-    fi
-fi
-)
 
 
 # revert all changes because all patch files have been loaded by init
@@ -625,41 +525,6 @@ for item in \`ls \$OVERLAYDIR\`; do
             ;;
     esac
 done
-
-EOF
-
-cat <<EOF >/magisk/magisksu_survival.sh
-
-MAGISKTMP=\${{MAGISKTMP}}
-export PATH="\$MAGISKTMP:\$PATH"
-
-# prevent /system/bin/su from removing
-
-if mount | grep -q " /system/bin " && [ -f "/system/bin/magisk" ]; then
-    [ -L /system/bin/su ] || umount -l /system/bin/su
-    rm -rf /system/bin/su
-    ln -fs ./magisk /system/bin/su
-    mount -o ro,remount /system/bin
-fi
-
-# mount all drives
-( for blkdisk in /dev/block/[hmnsvx][dmrv][0-9a-z]*; do
-        if [ -b "\$blkdisk" ]; then
-            BLOCKNAME="\${blkdisk##*/}"
-            CHECKBLOCK="\$(mountpoint -x "/dev/block/\$BLOCKNAME")"
-            blk_major="\${CHECKBLOCK%:*}"
-            blk_minor="\${CHECKBLOCK: \${#blk_major}+1}"
-            mknod -m 666 "\$MAGISKTMP/.magisk/block/\$BLOCKNAME" b "\$blk_major" "\$blk_minor"
-            mkdir -p "\$MAGISKTMP/.magisk/mirror/\$BLOCKNAME"
-            mount.fuse "\$MAGISKTMP/.magisk/block/\$BLOCKNAME" "\$MAGISKTMP/.magisk/mirror/\$BLOCKNAME"
-            mountpoint -q "\$MAGISKTMP/.magisk/mirror/\$BLOCKNAME" || mount "\$MAGISKTMP/.magisk/block/\$BLOCKNAME" "\$MAGISKTMP/.magisk/mirror/\$BLOCKNAME"
-            mountpoint -q "\$MAGISKTMP/.magisk/mirror/\$BLOCKNAME" || mount -o ro "\$MAGISKTMP/.magisk/block/\$BLOCKNAME" "\$MAGISKTMP/.magisk/mirror/\$BLOCKNAME"
-            mount -o ro,remount "\$MAGISKTMP/.magisk/mirror/\$BLOCKNAME"
-        fi
-done
-# remove empty directory
-rmdir \$MAGISKTMP/.magisk/mirror/* 
-) &
 
 EOF
 
