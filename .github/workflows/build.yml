@@ -34,9 +34,6 @@ jobs:
         gzip -d ./boot.img.gz
         gzip -d ./magiskboot.gz
         chmod 777 ./magiskboot
-        sh ./boot_patch.sh boot.img stable
-        sh ./boot_patch.sh boot.img canary
-        sh ./boot_patch.sh boot.img debug
         sh ./boot_patch.sh boot.img canary-huskydg
         sh ./boot_patch.sh boot.img debug-huskydg
         cd ..
@@ -45,8 +42,5 @@ jobs:
       with:
         name: Boot image for initrd-magisk
         path: |
-            boot-magisk_stable.img
-            boot-magisk_canary.img
-            boot-magisk_debug.img
             boot-magisk_canary-huskydg.img
             boot-magisk_debug-huskydg.img    
