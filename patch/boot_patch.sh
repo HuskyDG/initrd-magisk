@@ -31,7 +31,7 @@ if [ -z $SOURCEDMODE ]; then
     IS64BIT=true
 fi
 
-busybox unzip -oj $2.apk "lib/$ABI/*" "lib/$ABI32/libmagisk32.so" -x "lib/$ABI/libbusybox.so" "lib/$ABI/libmagiskboot.so" -d ./
+busybox unzip -oj $2.apk "lib/$ABI/*" "lib/$ABI32/libmagisk32.so" "assets/stub.apk" -x "lib/$ABI/libbusybox.so" "lib/$ABI/libmagiskboot.so" -d ./
 
 for file in magisk32 magisk64 magiskinit; do
   chmod 755 lib${file}.so
@@ -154,12 +154,15 @@ if [ -f magisk64 ]; then
   unset SKIP64
 fi
 
+./magiskboot compress=xz stub.apk stub.xz
+
 ./magiskboot cpio ramdisk.cpio \
 "add 0750 $INIT magiskinit" \
 "mkdir 0750 overlay.d" \
 "mkdir 0750 overlay.d/sbin" \
 "$SKIP32 add 0644 overlay.d/sbin/magisk32.xz magisk32.xz" \
 "$SKIP64 add 0644 overlay.d/sbin/magisk64.xz magisk64.xz" \
+"add 0644 overlay.d/sbin/stub.xz stub.xz" \
 "patch" \
 "backup ramdisk.cpio.orig" \
 "mkdir 000 .backup" \
