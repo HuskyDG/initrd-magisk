@@ -149,15 +149,15 @@ check_root()
 		mkdir /mnt/iso
 		mount -o loop /iso/$iso /mnt/iso
 	fi
-  INITRD_REAL=initrd_real.img
-  APKFILE=/mnt/$SRC/magisk.apk
+  INITRD_REAL=boot/initrd_real.img
+  APKFILE=/mnt/$SRC/boot/magisk.apk
   echo "$dev" >"$MAGISKCORE/osroot_dev"
 	if [ -e /mnt/$SRC/$INITRD_REAL ]; then
 		zcat /mnt/$SRC/$INITRD_REAL | cpio -id > /dev/null
                 INITRD_IMAGE="/mnt/$SRC/$INITRD_REAL"
-  elif [ -e /mnt/$SRC/initrd.img ]; then
-    zcat /mnt/$SRC/initrd.img | cpio -id > /dev/null
-                INITRD_IMAGE="/mnt/$SRC/initrd.img"
+  elif [ -e /mnt/$SRC/boot/initrd.img ]; then
+    zcat /mnt/$SRC/boot/initrd.img | cpio -id > /dev/null
+                INITRD_IMAGE="/mnt/$SRC/boot/initrd.img"
 	elif [ -b /dev/$INITRD_REAL ]; then
 		zcat /dev/$INITRD_REAL | cpio -id > /dev/null
                 INITRD_IMAGE="/dev/$INITRD_REAL"
@@ -165,9 +165,9 @@ check_root()
 		return 1
 	fi
      err="$?"
-     if [ ! -f "/mnt/$SRC/boot-magisk.img" ]; then
-         rm -rf  "/mnt/$SRC/boot-magisk.img"
-         zcat "/boot.img.gz" >"/mnt/$SRC/boot-magisk.img"
+     if [ ! -f "/mnt/$SRC/boot/boot-magisk.img" ]; then
+         rm -rf  "/mnt/$SRC/boot/boot-magisk.img"
+         zcat "/boot.img.gz" >"/mnt/$SRC/boot/boot-magisk.img"
      fi
      return "$err"
 }

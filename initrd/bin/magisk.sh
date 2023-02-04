@@ -76,12 +76,14 @@ fi
 killall -9 magiskd
 }
 
-if [ -f "/mnt/$SOURCE_OS/boot-magisk.img" ]; then
-     loop_setup  "/mnt/$SOURCE_OS/boot-magisk.img"
-     BOOTIMAGE="$LOOPDEV"
-     debug_log "initrd-magisk: boot image = $BOOTIMAGE"
+if [ -f "/mnt/$SOURCE_OS/boot/boot-magisk.img" ]; then
+    loop_setup  "/mnt/$SOURCE_OS/boot/boot-magisk.img"
+    BOOTIMAGE="$LOOPDEV"
+    debug_log "initrd-magisk: boot image = $BOOTIMAGE"
 fi
-[ -z "$BOOTIMAGE" ] && BOOTIMAGE=/dev/null
+if [ -z "$BOOTIMAGE" ]; then
+    debug_log "initrd-magisk: boot image is not found"
+fi
 
 ( # BEGIN : inject magisk
 
@@ -132,7 +134,7 @@ OVERLAYDIR="/android/dev/boot-magisk/overlay.d"
 # if boot image contains magisk, it will be used instead of magisk.apk
 
 debug_log "initrd-magisk: parse boot image"
-( cp -f "/mnt/$SOURCE_OS/boot-magisk.img" /tmp/boot.img
+( cp -f "/mnt/$SOURCE_OS/boot/boot-magisk.img" /tmp/boot.img
 cd "$inittmp" && $MAGISKCORE/magiskboot unpack "/tmp/boot.img"
 cd "$inittmp/boot-magisk" && cat "$inittmp/ramdisk.cpio" | cpio -iud
 cp -f "$inittmp/boot-magisk/init" "$MAGISKCORE/magiskinit"
