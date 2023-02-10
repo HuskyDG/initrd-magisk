@@ -3,6 +3,20 @@
 . /bin/info.sh
 debug_log "initrd-magisk: MAGISKTMP = [$MAGISKTMP]"
 
+ENABLE_OVERLAYFS="$(cmdline INITRD_MAGIC_OVERLAYFS)"
+if [ "$ENABLE_OVERLAYFS" == 1 ]; then
+    echo "Enable overlayfs"
+    rm -rf /scripts/00-overlayfs.sh
+    cat << EOF >/scripts/00-overlayfs.sh
+mkdir -p /android/data/adb/overlayfs/upper/system
+mkdir -p /android/data/adb/overlayfs/work/system
+chmod 755 /android/data/adb/overlayfs/upper/system
+chcon u:object_r:system_file:s0 /android/data/adb/overlayfs/upper/system
+mount -t overlay -o lowerdir=/system,upperdir=/android/data/adb/overlayfs/upper/system,workdir=/android/data/adb/overlayfs/work/system \
+    overlay /android/system
+EOF
+fi
+
 # get source name of android x86
 get_src
 
