@@ -434,19 +434,6 @@ mkdir \$MAGISKTMP/.magisk/block
 cat MAGISK_FILES_BASE/config >\$MAGISKTMP/.magisk/config
 restorecon -R /data/adb/magisk
 
-OSROOT="\$(cat MAGISK_FILES_BASE/osroot_dev)"
-if [ ! -z "\$OSROOT" ]; then
-    BLOCKNAME="\${OSROOT##*/}"
-    ln -s "./\$BLOCKNAME" "\$MAGISKTMP/.magisk/mirror/osroot"
-fi
-
-SRC="\$(cmdline SRC)"
-BIPATH="\$(cmdline BOOT_IMAGE)"
-test -z "\$SRC" && SRC="\${BIPATH%/*}"
-if [ ! -z "\$SRC" ]; then
-    ln -s "./osroot/\$SRC" "\$MAGISKTMP/.magisk/mirror/android"
-fi
-
 # if magisk does not exist
 [ ! -f "\$MAGISKTMP/magisk" ] && exit_magisk
 
