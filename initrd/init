@@ -249,32 +249,19 @@ on post-fs-data
     exec u:r:su:s0 root root -- MAGISK_FILES_BASE/busybox sh -o standalone /dev/magisk_overlay.sh
     rm /dev/magisk_overlay.sh
     # start magisk post-fs-data event
-    start \${{POSTFSDATA}}
+    exec u:r:magisk:s0 root root -- \${{MAGISKTMP}}/magisk --post-fs-data
 
-    # wait all magisk post-fs-data jobs are completed or 40s  has passed
-    wait /dev/.magisk_unblock 40
-    rm /dev/.magisk_unblock
+on property:vold.decrypt=trigger_restart_framework
+    exec u:r:magisk:s0 root root -- \${{MAGISKTMP}}/magisk --service
 
-service \${{POSTFSDATA}} \${{MAGISKTMP}}/magisk --post-fs-data
-    user root
-    seclabel u:r:magisk:s0
-    oneshot
-
-service \${{SERVICE}} \${{MAGISKTMP}}/magisk --service
-    class late_start
-    user root
-    seclabel u:r:magisk:s0
-    oneshot
+on nonencrypted
+    exec u:r:magisk:s0 root root -- \${{MAGISKTMP}}/magisk --service
 
 on property:sys.boot_completed=1
+    exec u:r:magisk:s0 root root -- \${{MAGISKTMP}}/magisk --boot-complete
 
-    # start magisk boot_completed event
-    start \${{BOOTCOMPLETED}}
-
-service \${{BOOTCOMPLETED}} \${{MAGISKTMP}}/magisk --boot-complete
-    user root
-    seclabel u:r:magisk:s0
-    oneshot
+on property:init.svc.zygote=restarting
+    exec u:r:magisk:s0 root root -- \${{MAGISKTMP}}/magisk --zygote-restart
 
 on property:init.svc.zygote=restarting
     exec u:r:magisk:s0 root root -- \${{MAGISKTMP}}/magisk --zygote-restart
